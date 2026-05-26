@@ -16,10 +16,10 @@
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "@twlibn/core": "*"
-  },
   "devDependencies": {
     "@types/node": "^25.9.1"
+  },
+  "dependencies": {
+    "@twlibn/core": "^0.0.2"
   }
 }
