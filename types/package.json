@@ -1,0 +1,21 @@
+{
+    "name":"@twlibn/types",
+    "version":"0.0.1",
+    "description":"twlibn types",
+    "keywords":[
+        "teeworlds",
+        "ddnet",
+        "types"
+    ],
+    "license":"MIT",
+    "author":"0374flop",
+    "type":"commonjs",
+    "main":"lib/index.js",
+    "scripts":  {
+        "build":"tsc",
+        "prepublishOnly":"npm run build"
+    },
+    "devDependencies": {
+        "@types/node":"^25.9.1"
+    }
+}

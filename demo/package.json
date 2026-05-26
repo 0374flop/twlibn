@@ -1,0 +1,22 @@
+{
+  "name": "@twlibn/demo",
+  "version": "0.0.1",
+  "description": "tw demo parser",
+  "keywords": [
+    "teeworlds",
+    "demo",
+    "parser",
+    "ddnet"
+  ],
+  "license": "MIT",
+  "author": "0374flop",
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
+  }
+}
