@@ -124,88 +124,50 @@ export namespace SnapshotItemTypes {
     export interface SoundWorld { common: Common; sound_id: number; }
     export interface DamageInd { common: Common; angle: number; }
 
-    export interface MyOwnObject { m_Test: number; }
+    export interface MyOwnObject { test: number; }
 
     export interface DDNetCharacter {
-        m_Flags: number;
-        m_FreezeEnd: number;
-        m_Jumps: number;
-        m_TeleCheckpoint: number;
-        m_StrongWeakID: number;
-        m_JumpedTotal?: number;
-        m_NinjaActivationTick?: number;
-        m_FreezeStart?: number;
-        m_TargetX?: number;
-        m_TargetY?: number;
+        flags: number;
+        freeze_end: number;
+        jumps: number;
+        tele_checkpoint: number;
+        strong_weak_id: number;
+        jumped_total?: number;
+        ninja_activation_tick?: number;
+        freeze_start?: number;
+        target_x?: number;
+        target_y?: number;
         id: number;
     }
 
     export interface DDNetPlayer {
-        m_Flags: number;
-        m_AuthLevel: number;
+        flags: number;
+        auth_level: number;
         id: number;
     }
 
     export interface GameInfoEx {
-        m_Flags: number;
-        m_Version: number;
-        m_Flags2: number;
+        flags: number;
+        version: number;
+        flags2: number;
     }
 
     export interface DDNetProjectile {
-        m_X: number;
-        m_Y: number;
-        m_Angle: number;
-        m_Data: number;
-        m_Type: number;
-        m_StartTick: number;
+        x: number;
+        y: number;
+        angle: number;
+        data: number;
+        type_: number;
+        start_tick: number;
     }
 
     export interface DDNetLaser {
-        m_ToX: number;
-        m_ToY: number;
-        m_FromX: number;
-        m_FromY: number;
-        m_StartTick: number;
-        m_Owner: number;
-        m_Type: number;
+        to_x: number;
+        to_y: number;
+        from_x: number;
+        from_y: number;
+        start_tick: number;
+        owner: number;
+        type_: number;
     }
 }
-
-export type Item =
-    | SnapshotItemTypes.PlayerInput
-    | SnapshotItemTypes.PlayerInfo
-    | SnapshotItemTypes.Projectile
-    | SnapshotItemTypes.Laser
-    | SnapshotItemTypes.Pickup
-    | SnapshotItemTypes.Flag
-    | SnapshotItemTypes.GameInfo
-    | SnapshotItemTypes.GameData
-    | SnapshotItemTypes.CharacterCore
-    | SnapshotItemTypes.Character
-    | SnapshotItemTypes.ClientInfo
-    | SnapshotItemTypes.SpectatorInfo
-    | SnapshotItemTypes.Common
-    | SnapshotItemTypes.Explosion
-    | SnapshotItemTypes.Spawn
-    | SnapshotItemTypes.HammerHit
-    | SnapshotItemTypes.Death
-    | SnapshotItemTypes.SoundGlobal
-    | SnapshotItemTypes.SoundWorld
-    | SnapshotItemTypes.DamageInd;
-
-export type DDNetItem =
-    | SnapshotItemTypes.MyOwnObject
-    | SnapshotItemTypes.DDNetCharacter
-    | SnapshotItemTypes.DDNetPlayer
-    | SnapshotItemTypes.GameInfoEx
-    | SnapshotItemTypes.DDNetProjectile
-    | SnapshotItemTypes.DDNetLaser;
-
-export type DeltaItem = {
-    data: number[];
-    parsed: Item | DDNetItem;
-    type_id: number;
-    id: number;
-    key: number;
-};

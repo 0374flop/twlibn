@@ -1,5 +1,5 @@
 import { UUIDManager, intsToStr } from "@twlibn/core";
-import { SnapshotItemTypes, Item, DDNetItem } from "./types";
+import { SnapshotItemTypes, Item, DDNetItem } from "@twlibn/types";
 
 export const ITEM_SIZES: number[] = [
 	0,
@@ -53,23 +53,23 @@ export function parseItem(data: number[], typeId: number, id: number, uuidMgr: U
 	if (typeId >= UUID_OFFSET) {
 		const name = uuidMgr.LookupType(typeId)?.name;
 		if (name === "my-own-object@heinrich5991.de")
-			return { m_Test: data[0] } as SnapshotItemTypes.MyOwnObject;
+			return { test: data[0] } as SnapshotItemTypes.MyOwnObject;
 		if (name === "character@netobj.ddnet.tw")
 			return {
-				m_Flags: data[0], m_FreezeEnd: data[1], m_Jumps: data[2],
-				m_TeleCheckpoint: data[3], m_StrongWeakID: data[4],
-				m_JumpedTotal: data[5] ?? null, m_NinjaActivationTick: data[6] ?? null,
-				m_FreezeStart: data[7] ?? null, m_TargetX: data[8] ?? null,
-				m_TargetY: data[9] ?? null, id,
+				flags: data[0], freeze_end: data[1], jumps: data[2],
+				tele_checkpoint: data[3], strong_weak_id: data[4],
+				jumped_total: data[5] ?? null, ninja_activation_tick: data[6] ?? null,
+				freeze_start: data[7] ?? null, target_x: data[8] ?? null,
+				target_y: data[9] ?? null, id,
 			} as SnapshotItemTypes.DDNetCharacter;
 		if (name === "player@netobj.ddnet.tw")
-			return { m_Flags: data[0], m_AuthLevel: data[1], id } as SnapshotItemTypes.DDNetPlayer;
+			return { flags: data[0], auth_level: data[1], id } as SnapshotItemTypes.DDNetPlayer;
 		if (name === "gameinfo@netobj.ddnet.tw")
-			return { m_Flags: data[0], m_Version: data[1], m_Flags2: data[2] } as SnapshotItemTypes.GameInfoEx;
+			return { flags: data[0], version: data[1], flags2: data[2] } as SnapshotItemTypes.GameInfoEx;
 		if (name === "projectile@netobj.ddnet.tw")
-			return { m_X: data[0], m_Y: data[1], m_Angle: data[2], m_Data: data[3], m_Type: data[4], m_StartTick: data[5] } as SnapshotItemTypes.DDNetProjectile;
+			return { x: data[0], y: data[1], angle: data[2], data: data[3], type_: data[4], start_tick: data[5] } as SnapshotItemTypes.DDNetProjectile;
 		if (name === "laser@netobj.ddnet.tw")
-			return { m_ToX: data[0], m_ToY: data[1], m_FromX: data[2], m_FromY: data[3], m_StartTick: data[4], m_Owner: data[5], m_Type: data[6] } as SnapshotItemTypes.DDNetLaser;
+			return { to_x: data[0], to_y: data[1], from_x: data[2], from_y: data[3], start_tick: data[4], owner: data[5], type_: data[6] } as SnapshotItemTypes.DDNetLaser;
 		return {} as Item;
 	}
 

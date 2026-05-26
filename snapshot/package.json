@@ -20,6 +20,7 @@
     "@types/node": "^25.9.1"
   },
   "dependencies": {
-    "@twlibn/core": "^0.0.1"
+    "@twlibn/core": "^0.0.1",
+    "@twlibn/types": "^0.0.1"
   }
 }

@@ -35,11 +35,8 @@ export interface QuadColor {
 }
 
 export interface Quad {
-
     points: QuadPoint[];
-
     colors: QuadColor[];
-
     tex_coords: QuadPoint[];
     pos_env: number;
     pos_env_offset: number;
@@ -58,10 +55,8 @@ export interface QuadLayer {
 export interface MapImage {
     width: number;
     height: number;
-
     external: boolean;
     name: string;
-
     data?: Uint8Array;
 }
 
@@ -71,9 +66,7 @@ export interface TileLayer {
     layer_type: TilemapLayerType;
     name: string;
     detail: boolean;
-
     image_index: number;
-
     color: [number, number, number, number];
     color_env: number;
     color_env_offset: number;
@@ -95,7 +88,6 @@ export interface LayerGroup {
     clip_y: number;
     clip_w: number;
     clip_h: number;
-
     layers: (TileLayer | QuadLayer)[];
 }
 
@@ -124,7 +116,6 @@ export function is_quad_layer(l: TileLayer | QuadLayer): l is QuadLayer {
 }
 
 export class MapParser {
-
     static parse(buf: Buffer): MapInfo {
         return this.fromDatafile(parse_datafile(buf));
     }
@@ -156,7 +147,6 @@ export class MapParser {
 
         for (const img of image_items) {
             const d = img.item_data;
-
             if (d.length < 6) continue;
 
             const external = d[3] !== 0;
@@ -240,7 +230,6 @@ export class MapParser {
     }
 
     private static parseTileLayer(ld: number[], df: ParsedDatafile): TileLayer | null {
-
         if (ld.length < 7) return null;
 
         const type = ld[6] as TilemapLayerType;
@@ -298,7 +287,6 @@ export class MapParser {
     }
 
     private static parseQuadLayer(ld: number[], df: ParsedDatafile): QuadLayer | null {
-
         if (ld.length < 7) return null;
 
         const v = ld[3];
@@ -429,7 +417,6 @@ export class MapParser {
 
 
     private static tileDataIndex(t: TilemapLayerType, v: number): number {
-
         if (t === TilemapLayerType.TILES || t === TilemapLayerType.GAME) return 14;
 
         const base = v >= 3 ? 18 : 15;
@@ -443,7 +430,6 @@ export class MapParser {
             default: return 14;
         }
     }
-
 
     private static getCString(buf: Buffer | undefined): string {
         if (!buf) return "";
@@ -465,15 +451,15 @@ export class MapParser {
 }
 
 const TILE_NAMES: Record<number, string> = {
-    0:  "air",
-    1:  "solid",
-    2:  "death",
-    3:  "nohook",
-    4:  "nolaser",
-    5:  "through_cut",
-    6:  "through",
-    7:  "jump",
-    9:  "freeze",
+    0: "air",
+    1: "solid",
+    2: "death",
+    3: "nohook",
+    4: "nolaser",
+    5: "through_cut",
+    6: "through",
+    7: "jump",
+    9: "freeze",
     10: "tele_in_evil",
     11: "unfreeze",
     12: "deep_freeze",

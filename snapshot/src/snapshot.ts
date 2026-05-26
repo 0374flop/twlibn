@@ -1,5 +1,5 @@
 import { MsgUnpacker, UUIDManager, createTwMD5Hash } from "@twlibn/core";
-import { Item, DDNetItem, DeltaItem } from "./types";
+import { Item, DDNetItem, DeltaItem } from "@twlibn/types";
 import { ITEM_SIZES, UUID_OFFSET, SUPPORTED_UUIDS, EVENT_TYPE_NAMES, parseItem } from "./items";
 
 export { EVENT_TYPE_NAMES };
