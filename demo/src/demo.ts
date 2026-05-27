@@ -1,7 +1,9 @@
-import type { DemoChunk, DemoHeader, DataChunk, TickChunk, ParsedDemo, TimelineMarkers, ChunkType } from "@twlibn/types";
-import { BufReader } from "@twlibn/core";
+import { DemoChunk, DemoHeader, DataChunk, TickChunk, ParsedDemo, TimelineMarkers, ChunkType } from "@twlibn/types";
+import { BufReader, Huffman } from "@twlibn/core";
 
 export class DemoParser {
+	private static readonly huff = new Huffman();
+
 	static parse(buf: Buffer): ParsedDemo {
 		const r = new BufReader(buf);
 
@@ -106,7 +108,12 @@ export class DemoParser {
 		if (size === 30) size = r.u8();
 		else if (size === 31) size = r.u16le();
 
-		return { kind: "chunk", type, data: r.raw(size) };
+		const compressed = r.raw(size);
+		const data = type === ChunkType.Invalid
+			? compressed
+			: DemoParser.huff.decompress(compressed);
+
+		return { kind: "chunk", type, data };
 	}
 }
 
