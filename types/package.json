@@ -9,8 +9,7 @@
     ],
     "license":"MIT",
     "author":"0374flop",
-    "type":"commonjs",
-    "main":"lib/index.js",
+    "types": "lib/index.d.ts",
     "scripts":  {
         "build":"tsc",
         "prepublishOnly":"npm run build"
