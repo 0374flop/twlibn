@@ -17,6 +17,8 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1"
+    "@types/node": "^25.9.1",
+    "@twlibn/core": "^0.0.2",
+    "@twlibn/types": "^0.0.1"
   }
 }
