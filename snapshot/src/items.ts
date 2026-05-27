@@ -1,5 +1,5 @@
 import { UUIDManager, intsToStr } from "@twlibn/core";
-import { SnapshotItemTypes, Item, DDNetItem } from "@twlibn/types";
+import type { SnapshotItemTypes, Item, DDNetItem } from "@twlibn/types";
 
 export const ITEM_SIZES: number[] = [
 	0,

@@ -1,6 +1,6 @@
 import { inflateSync } from "zlib";
 import { BufReader } from "@twlibn/core";
-import { ItemTypeEntry, ParsedDatafile, RawItem } from "@twlibn/types";
+import type { ItemTypeEntry, ParsedDatafile, RawItem } from "@twlibn/types";
 
 export function parse_datafile(buf: Buffer): ParsedDatafile {
     const r = new BufReader(buf);

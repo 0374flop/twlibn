@@ -1,4 +1,4 @@
-import { DemoChunk, DemoHeader, DataChunk, TickChunk, ParsedDemo, TimelineMarkers, ChunkType } from "@twlibn/types";
+import type { DemoChunk, DemoHeader, DataChunk, TickChunk, ParsedDemo, TimelineMarkers, ChunkType } from "@twlibn/types";
 import { BufReader } from "@twlibn/core";
 
 export class DemoParser {
