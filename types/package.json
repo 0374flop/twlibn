@@ -1,20 +1,20 @@
 {
-    "name":"@twlibn/types",
-    "version":"0.0.1",
-    "description":"twlibn types",
-    "keywords":[
+    "name": "@twlibn/types",
+    "version": "0.0.3",
+    "description": "twlibn types",
+    "keywords": [
         "teeworlds",
         "ddnet",
         "types"
     ],
-    "license":"MIT",
-    "author":"0374flop",
+    "license": "MIT",
+    "author": "0374flop",
     "types": "lib/index.d.ts",
-    "scripts":  {
-        "build":"tsc",
-        "prepublishOnly":"npm run build"
+    "scripts": {
+        "build": "tsc",
+        "prepublishOnly": "npm run build"
     },
     "devDependencies": {
-        "@types/node":"^25.9.1"
+        "@types/node": "^25.9.1"
     }
 }

@@ -1,8 +1,6 @@
 import { MsgUnpacker, UUIDManager, createTwMD5Hash } from "@twlibn/core";
-import { Item, DDNetItem, DeltaItem } from "@twlibn/types";
-import { ITEM_SIZES, UUID_OFFSET, SUPPORTED_UUIDS, EVENT_TYPE_NAMES, parseItem } from "./items";
-
-export { EVENT_TYPE_NAMES };
+import { Item, DDNetItem, DeltaItem, ESnap } from "@twlibn/types";
+import { ITEM_SIZES, SUPPORTED_UUIDS, parseItem } from "./items";
 
 function undiffItem(old: number[], delta: number[]): number[] {
 	const out = [...delta];
@@ -18,8 +16,6 @@ function arraysEqual(a: number[], b: number[]): boolean {
 	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
 	return true;
 }
-
-interface ESnap { Key: number; Data: number[]; }
 
 export class Snapshot {
 	deltas: DeltaItem[] = [];

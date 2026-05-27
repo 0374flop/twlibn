@@ -21,6 +21,6 @@
   },
   "dependencies": {
     "@twlibn/core": "^0.0.1",
-    "@twlibn/types": "^0.0.1"
+    "@twlibn/types": "^0.0.3"
   }
 }

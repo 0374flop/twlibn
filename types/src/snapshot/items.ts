@@ -37,3 +37,5 @@ export type DeltaItem = {
     id: number;
     key: number;
 };
+
+export interface ESnap { Key: number; Data: number[]; }
