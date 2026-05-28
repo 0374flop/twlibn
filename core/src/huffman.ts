@@ -115,8 +115,9 @@ export class Huffman {
 
 			if (i == HUFFMAN_EOF_SYMBOL) {
 				nodes_left_storage[i].frequency = 1;
-			} else
+			} else {
 				nodes_left_storage[i].frequency = frequencies[i];
+			}
 			nodes_left_storage[i].node_id = i;
 			nodes_left[i] = i;
 		}
@@ -153,7 +154,7 @@ export class Huffman {
 
 			while (bitcount >= 8) {
 				output.push(bits & 0xff);
-				bits >>= 8;
+				bits = bits >>> 8;
 				bitcount -= 8;
 			}
 		}
@@ -162,7 +163,7 @@ export class Huffman {
 
 		while (bitcount >= 8) {
 			output.push(bits & 0xff);
-			bits >>= 8;
+			bits = bits >>> 8;
 			bitcount -= 8;
 		}
 		output.push(bits);
@@ -173,7 +174,7 @@ export class Huffman {
 		let bitcount = 0;
 		let eof = this.nodes[HUFFMAN_EOF_SYMBOL];
 		let output = [];
-		
+
 		if (size == 0) size = inp_buffer.byteLength;
 		inp_buffer = inp_buffer.slice(0, size);
 		let src_index = 0;
@@ -183,36 +184,29 @@ export class Huffman {
 				node_i = this.decode_lut[bits & HUFFMAN_LUTMASK];
 			while (bitcount < 24 && src_index != size) {
 				bits |= inp_buffer[src_index] << bitcount;
+				bits = bits >>> 0;
 				bitcount += 8;
 				src_index++;
 			}
 			if (node_i == -1)
 				node_i = this.decode_lut[bits & HUFFMAN_LUTMASK];
 			if (this.nodes[node_i].numbits) {
-				bits >>= this.nodes[node_i].numbits;
+				bits = bits >>> this.nodes[node_i].numbits;
 				bitcount -= this.nodes[node_i].numbits;
 			} else {
-				bits >>= HUFFMAN_LUTBITS;
+				bits = bits >>> HUFFMAN_LUTBITS;
 				bitcount -= HUFFMAN_LUTBITS;
 
 				while (true) {
-					if (bits & 1) {
-						node_i = this.nodes[node_i].right;
-					} else {
-						node_i = this.nodes[node_i].left;
-					}
+					if (bits & 1) node_i = this.nodes[node_i].right;
+					else node_i = this.nodes[node_i].left;
 					bitcount -= 1;
-					bits >>= 1;
-
-					if (this.nodes[node_i].numbits)
-						break;
-					if (bitcount == 0)
-						throw new Error("No more bits, decoding error")
+					bits = bits >>> 1;
+					if (this.nodes[node_i].numbits) break;
+					if (bitcount == 0) throw new Error("No more bits, decoding error");
 				}
-
 			}
-			if (this.nodes[node_i] == eof)
-				break;
+			if (this.nodes[node_i] == eof) break;
 			output.push(this.nodes[node_i].symbol);
 		}
 		return Buffer.from(output);
