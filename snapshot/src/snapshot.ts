@@ -1,5 +1,5 @@
 import { MsgUnpacker, UUIDManager, createTwMD5Hash } from "@twlibn/core";
-import type { Item, DDNetItem, DeltaItem, ESnap } from "@twlibn/types";
+import type { Item, DDNetItem, DeltaItem, ESnap } from "./items";
 import { ITEM_SIZES, SUPPORTED_UUIDS, parseItem } from "./items";
 
 function undiffItem(old: number[], delta: number[]): number[] {

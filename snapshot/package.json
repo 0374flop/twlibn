@@ -1,6 +1,6 @@
 {
   "name": "@twlibn/snapshot",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "tw snapshot parser",
   "keywords": [
     "teeworlds",
@@ -20,7 +20,6 @@
     "@types/node": "^25.9.1"
   },
   "dependencies": {
-    "@twlibn/core": "^0.0.1",
-    "@twlibn/types": "^0.0.3"
+    "@twlibn/core": "^0.0.1"
   }
 }

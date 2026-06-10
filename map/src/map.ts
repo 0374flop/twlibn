@@ -1,6 +1,6 @@
-import { parse_datafile } from "./datafile";
+import { parse_datafile, ParsedDatafile } from "./datafile";
 import { intsToStr, BufReader } from "@twlibn/core";
-import { MapInfo, MapImage, LayerGroup, TileLayer, QuadLayer, TilemapLayerType, Tile, TileId, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, QuadPoint, QuadColor, ParsedDatafile } from "@twlibn/types";
+import { MapInfo, MapImage, LayerGroup, TileLayer, QuadLayer, TilemapLayerType, Tile, TileId, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, QuadPoint, QuadColor } from "./types";
 
 const ITEM_TYPE_IMAGES = 2;
 const ITEM_TYPE_GROUPS = 4;

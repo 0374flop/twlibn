@@ -9,6 +9,7 @@
     ],
     "license": "MIT",
     "author": "0374flop",
+    "main": "lib/index.js",
     "types": "lib/index.d.ts",
     "scripts": {
         "build": "tsc",
