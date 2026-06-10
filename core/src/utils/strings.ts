@@ -15,7 +15,7 @@ export function intsToStr(ints: number[]): string {
 export function strToInts(str: string, slots: number): number[] {
 	const maxBytes = slots * 4 - 1;
 	const raw = Buffer.from(str, "utf8").subarray(0, maxBytes);
-	const bytes = new Array(slots * 4).fill(0);
+	const bytes = new Array(slots * 4).fill(128);
 	for (let i = 0; i < raw.length; i++) bytes[i] = raw[i] + 128;
 	bytes[slots * 4 - 1] = 0;
 
