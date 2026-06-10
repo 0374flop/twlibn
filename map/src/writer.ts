@@ -1,4 +1,4 @@
-import { BufWriter, strToInts, createTwMD5Hash } from "@twlibn/core";
+import { BufWriter, strToInts, createTwMD5Hash, TW_UUIDS } from "@twlibn/core";
 import { write_datafile, ParsedDatafile, RawItem } from "./datafile";
 import { MapInfo, TileLayer, QuadLayer, SoundLayer, SoundSource, TilemapLayerType, Tile, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, Envelope, EnvelopePoint, AnyLayer } from "./types";
 import { is_tile_layer, is_quad_layer, is_sound_layer } from "./map";
@@ -17,8 +17,8 @@ const LAYER_KIND_TILES = 2;
 const LAYER_KIND_QUADS = 3;
 const LAYER_KIND_SOUNDS = 10;
 
-const AUTO_MAPPER_UUID_BYTES = createTwMD5Hash('mapitemtype-automapper-config@ddnet.tw');
-const ENV_POINTS_BEZIER_UUID_BYTES = createTwMD5Hash('mapitemtype-envpoints-bezier@ddnet.tw');
+const AUTO_MAPPER_UUID_BYTES = createTwMD5Hash(TW_UUIDS.MAPITEMTYPE_AUTOMAPPER_CONFIG);
+const ENV_POINTS_BEZIER_UUID_BYTES = createTwMD5Hash(TW_UUIDS.MAPITEMTYPE_ENVPOINTS_BEZIER);
 
 export class MapWriter {
     static write(map: MapInfo): Buffer {

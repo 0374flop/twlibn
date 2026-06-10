@@ -1,6 +1,7 @@
 export * from './huffman';
 export * from './protocol';
 export * from './UUIDManager';
+export * from './uuids';
 
 export * from './utils/buffer';
 export * from './utils/strings';
