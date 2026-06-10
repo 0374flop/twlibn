@@ -434,17 +434,16 @@ export class MapParser {
     }
 
     private static parseSpeedup(b: Buffer, w: number, h: number): SpeedupTile[][] {
-        const n   = w * h;
-        const bpt = Math.floor(b.length / n) || 6;
+        const n = w * h;
         const tiles: SpeedupTile[] = [];
 
         for (let i = 0; i < n; i++) {
-            const o = i * bpt;
+            const o = i * 6;
             tiles.push({
                 force: b[o],
-                max_speed: bpt > 1 ? b[o + 1] : 0,
-                id: bpt > 2 ? b[o + 2] : 0,
-                angle: bpt >= 6 ? b.readInt16LE(o + 4) : 0,
+                max_speed: b[o + 1],
+                id: b[o + 2],
+                angle: b.readInt16LE(o + 4),
             });
         }
 
@@ -453,11 +452,10 @@ export class MapParser {
 
     private static parseSwitch(b: Buffer, w: number, h: number): SwitchTile[][] {
         const n = w * h;
-        const bpt = Math.floor(b.length / n) || 4;
         const tiles: SwitchTile[] = [];
 
         for (let i = 0; i < n; i++) {
-            const o = i * bpt;
+            const o = i * 4;
             tiles.push({
                 number: b[o],
                 id: b[o + 1] || 0,
