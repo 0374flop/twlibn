@@ -1,15 +1,15 @@
 import { parse_datafile, ParsedDatafile } from "./datafile";
-import { intsToStr, BufReader } from "@twlibn/core";
+import { intsToStr, BufReader, createTwMD5Hash } from "@twlibn/core";
 import { MapInfo, MapInfoItem, MapVersion, MapImage, LayerGroup, TileLayer, QuadLayer, SoundLayer, SoundSource, TilemapLayerType, Tile, TileId, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, QuadPoint, QuadColor, Envelope, EnvelopePoint, MapSound, AutoMapper, AnyLayer } from "./types";
 
-const ITEM_TYPE_VERSION   = 0;
-const ITEM_TYPE_INFO      = 1;
-const ITEM_TYPE_IMAGES    = 2;
+const ITEM_TYPE_VERSION = 0;
+const ITEM_TYPE_INFO = 1;
+const ITEM_TYPE_IMAGES = 2;
 const ITEM_TYPE_ENVELOPES = 3;
-const ITEM_TYPE_GROUPS    = 4;
-const ITEM_TYPE_LAYERS    = 5;
+const ITEM_TYPE_GROUPS = 4;
+const ITEM_TYPE_LAYERS = 5;
 const ITEM_TYPE_ENV_POINTS = 6;
-const ITEM_TYPE_SOUNDS    = 7;
+const ITEM_TYPE_SOUNDS = 7;
 const ITEM_TYPE_UUID_INDEX = 0xffff;
 
 const LAYER_KIND_TILES  = 2;
@@ -101,8 +101,8 @@ export class MapParser {
         let auto_mapper_type_id = -1;
         let env_bezier_type_id = -1;
         const uuid_index_items = df.items.get(ITEM_TYPE_UUID_INDEX) ?? [];
-        const AUTO_MAPPER_BYTES = Buffer.from('16271b3e8c1778399bd9b11ae041d0d8', 'hex');
-        const ENV_BEZIER_BYTES = Buffer.from('3ab4f84dd9cc3c78b5850d6ccdb2e25c', 'hex');
+        const AUTO_MAPPER_BYTES = createTwMD5Hash('mapitemtype-automapper-config@ddnet.tw');
+        const ENV_BEZIER_BYTES = createTwMD5Hash('mapitemtype-envpoints-bezier@ddnet.tw');
         for (const u of uuid_index_items) {
             const d = u.item_data;
             if (d.length < 4) continue;
