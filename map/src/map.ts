@@ -98,17 +98,11 @@ export class MapParser {
             result.sounds.push(this.parseSound(s.item_data, df));
         }
 
-        const env_point_items = df.items.get(ITEM_TYPE_ENV_POINTS) ?? [];
-        const all_env_points: number[] = env_point_items[0]?.item_data ?? [];
-
-        const envelope_items = df.items.get(ITEM_TYPE_ENVELOPES) ?? [];
-        for (const env of envelope_items) {
-            result.envelopes.push(this.parseEnvelope(env.item_data, all_env_points));
-        }
-
         let auto_mapper_type_id = -1;
+        let env_bezier_type_id = -1;
         const uuid_index_items = df.items.get(ITEM_TYPE_UUID_INDEX) ?? [];
         const AUTO_MAPPER_BYTES = Buffer.from('16271b3e8c1778399bd9b11ae041d0d8', 'hex');
+        const ENV_BEZIER_BYTES = Buffer.from('3ab4f84dd9cc3c78b5850d6ccdb2e25c', 'hex');
         for (const u of uuid_index_items) {
             const d = u.item_data;
             if (d.length < 4) continue;
@@ -119,6 +113,33 @@ export class MapParser {
             uuid_buf.writeInt32BE(d[3], 12);
             if (uuid_buf.equals(AUTO_MAPPER_BYTES)) {
                 auto_mapper_type_id = u.id;
+            } else if (uuid_buf.equals(ENV_BEZIER_BYTES)) {
+                env_bezier_type_id = u.id;
+            }
+        }
+
+        const env_point_items = df.items.get(ITEM_TYPE_ENV_POINTS) ?? [];
+        const all_env_points: number[] = env_point_items[0]?.item_data ?? [];
+        const envelope_items = df.items.get(ITEM_TYPE_ENVELOPES) ?? [];
+        for (const env of envelope_items) {
+            result.envelopes.push(this.parseEnvelope(env.item_data, all_env_points));
+        }
+
+        if (env_bezier_type_id !== -1) {
+            const bezier_items = df.items.get(env_bezier_type_id) ?? [];
+            const bezier_data = bezier_items[0]?.item_data ?? [];
+            let pt_idx = 0;
+            for (const env of result.envelopes) {
+                for (const pt of env.points) {
+                    const b = pt_idx * 16;
+                    if (b + 16 <= bezier_data.length) {
+                        pt.in_tangent_dx = [bezier_data[b], bezier_data[b+1], bezier_data[b+2], bezier_data[b+3]];
+                        pt.in_tangent_dy = [bezier_data[b+4], bezier_data[b+5], bezier_data[b+6], bezier_data[b+7]];
+                        pt.out_tangent_dx = [bezier_data[b+8], bezier_data[b+9], bezier_data[b+10], bezier_data[b+11]];
+                        pt.out_tangent_dy = [bezier_data[b+12], bezier_data[b+13], bezier_data[b+14], bezier_data[b+15]];
+                    }
+                    pt_idx++;
+                }
             }
         }
 
@@ -294,27 +315,16 @@ export class MapParser {
         const name = d.length >= 12 ? intsToStr([d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11]]) : '';
         const synchronized = version >= 2 ? d[12] !== 0 : false;
 
-        const bezier = version >= 3;
-        const point_size = bezier ? 22 : 6;
         const points: EnvelopePoint[] = [];
 
         for (let i = 0; i < num; i++) {
-            const base = (start + i) * point_size;
+            const base = (start + i) * 6;
             if (base + 6 > all_points.length) break;
-            const time = all_points[base];
-            const curve_type = all_points[base + 1];
-            const v0 = all_points[base + 2] ?? 0;
-            const v1 = all_points[base + 3] ?? 0;
-            const v2 = all_points[base + 4] ?? 0;
-            const v3 = all_points[base + 5] ?? 0;
-            const pt: EnvelopePoint = { time, curve_type, values: [v0, v1, v2, v3] };
-            if (bezier && all_points.length >= base + 22) {
-                pt.in_tangent_dx = [all_points[base+6], all_points[base+7], all_points[base+8], all_points[base+9]];
-                pt.in_tangent_dy = [all_points[base+10], all_points[base+11], all_points[base+12], all_points[base+13]];
-                pt.out_tangent_dx = [all_points[base+14], all_points[base+15], all_points[base+16], all_points[base+17]];
-                pt.out_tangent_dy = [all_points[base+18], all_points[base+19], all_points[base+20], all_points[base+21]];
-            }
-            points.push(pt);
+            points.push({
+                time: all_points[base],
+                curve_type: all_points[base + 1],
+                values: [all_points[base+2] ?? 0, all_points[base+3] ?? 0, all_points[base+4] ?? 0, all_points[base+5] ?? 0],
+            });
         }
 
         return { version, channels, name, synchronized, points };

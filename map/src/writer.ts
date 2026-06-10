@@ -18,6 +18,7 @@ const LAYER_KIND_QUADS = 3;
 const LAYER_KIND_SOUNDS = 10;
 
 const AUTO_MAPPER_UUID_BYTES = Buffer.from('16271b3e8c1778399bd9b11ae041d0d8', 'hex');
+const ENV_POINTS_BEZIER_UUID_BYTES = Buffer.from('3ab4f84dd9cc3c78b5850d6ccdb2e25c', 'hex');
 
 export class MapWriter {
     static write(map: MapInfo): Buffer {
@@ -72,28 +73,47 @@ export class MapWriter {
             push_item(ITEM_TYPE_SOUNDS, i, [1, s.external ? 1 : 0, name_idx, data_idx, data_size]);
         }
 
+        const uuid_ints_from = (bytes: Buffer) => [
+            bytes.readInt32BE(0),
+            bytes.readInt32BE(4),
+            bytes.readInt32BE(8),
+            bytes.readInt32BE(12),
+        ];
+
         const env_points_data: number[] = [];
+        const env_bezier_data: number[] = [];
+        let has_bezier = false;
+        let point_count = 0;
         for (let i = 0; i < map.envelopes.length; i++) {
             const env = map.envelopes[i];
-            const start = env_points_data.length / (env.version >= 3 ? 22 : 6);
-            this.serializeEnvPoints(env, env_points_data);
+            const start = point_count;
+            for (const pt of env.points) {
+                env_points_data.push(pt.time, pt.curve_type, ...pt.values);
+                env_bezier_data.push(
+                    ...(pt.in_tangent_dx ?? [0,0,0,0]),
+                    ...(pt.in_tangent_dy ?? [0,0,0,0]),
+                    ...(pt.out_tangent_dx ?? [0,0,0,0]),
+                    ...(pt.out_tangent_dy ?? [0,0,0,0]),
+                );
+                if (pt.in_tangent_dx || pt.in_tangent_dy || pt.out_tangent_dx || pt.out_tangent_dy)
+                    has_bezier = true;
+            }
+            point_count += env.points.length;
             const name_ints = strToInts(env.name, 8);
-            const d = [env.version, env.channels, start, env.points.length, ...name_ints, env.synchronized ? 1 : 0];
-            push_item(ITEM_TYPE_ENVELOPES, i, d);
+            push_item(ITEM_TYPE_ENVELOPES, i, [2, env.channels, start, env.points.length, ...name_ints, env.synchronized ? 1 : 0]);
         }
         if (env_points_data.length > 0) {
             push_item(ITEM_TYPE_ENV_POINTS, 0, env_points_data);
         }
+        if (has_bezier) {
+            const bezier_type_id = 0x101;
+            push_item(ITEM_TYPE_UUID_INDEX, bezier_type_id, uuid_ints_from(ENV_POINTS_BEZIER_UUID_BYTES));
+            push_item(bezier_type_id, 0, env_bezier_data);
+        }
 
         if (map.auto_mappers.length > 0) {
             const am_type_id = 0x100;
-            const uuid_ints = [
-                AUTO_MAPPER_UUID_BYTES.readInt32BE(0),
-                AUTO_MAPPER_UUID_BYTES.readInt32BE(4),
-                AUTO_MAPPER_UUID_BYTES.readInt32BE(8),
-                AUTO_MAPPER_UUID_BYTES.readInt32BE(12),
-            ];
-            push_item(ITEM_TYPE_UUID_INDEX, am_type_id, uuid_ints);
+            push_item(ITEM_TYPE_UUID_INDEX, am_type_id, uuid_ints_from(AUTO_MAPPER_UUID_BYTES));
             for (let i = 0; i < map.auto_mappers.length; i++) {
                 const am = map.auto_mappers[i];
                 push_item(am_type_id, i, [0, am.group, am.layer, am.config, am.seed, am.automatic ? 1 : 0]);
@@ -189,7 +209,7 @@ export class MapWriter {
         const name_ints = strToInts(layer.name, 3);
         const flags = layer.detail ? 1 : 0;
         const data_idx = push_data(this.serializeSoundSources(layer.sources));
-        return [0, LAYER_KIND_SOUNDS, flags, 1, layer.sources.length, data_idx, layer.sound_index, ...name_ints];
+        return [0, LAYER_KIND_SOUNDS, flags, 2, layer.sources.length, data_idx, layer.sound_index, ...name_ints];
     }
 
     private static serializeTiles(tiles: Tile[][], w: number, h: number): Buffer {
@@ -293,16 +313,4 @@ export class MapWriter {
         return w.build();
     }
 
-    private static serializeEnvPoints(env: Envelope, out: number[]): void {
-        const bezier = env.version >= 3;
-        for (const pt of env.points) {
-            out.push(pt.time, pt.curve_type, ...pt.values);
-            if (bezier) {
-                out.push(...(pt.in_tangent_dx ?? [0,0,0,0]));
-                out.push(...(pt.in_tangent_dy ?? [0,0,0,0]));
-                out.push(...(pt.out_tangent_dx ?? [0,0,0,0]));
-                out.push(...(pt.out_tangent_dy ?? [0,0,0,0]));
-            }
-        }
-    }
 }
