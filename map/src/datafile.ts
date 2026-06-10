@@ -1,5 +1,5 @@
-import { inflateSync } from "zlib";
-import { BufReader } from "@twlibn/core";
+import { deflateSync, inflateSync } from "zlib";
+import { BufReader, BufWriter } from "@twlibn/core";
 
 export interface ItemTypeEntry {
     type_id: number;
@@ -91,4 +91,73 @@ export function parse_datafile(buf: Buffer): ParsedDatafile {
     }
 
     return { version, items: items_by_type, data_items };
+}
+
+export function write_datafile(df: ParsedDatafile): Buffer {
+    const all_items: RawItem[] = [];
+    const type_entries: { type_id: number; start: number; num: number }[] = [];
+    for (const [type_id, items] of df.items) {
+        if (items.length === 0) continue;
+        type_entries.push({ type_id, start: all_items.length, num: items.length });
+        all_items.push(...items);
+    }
+    const items_w = new BufWriter();
+    const item_offsets: number[] = [];
+    for (const item of all_items) {
+        item_offsets.push(items_w.size);
+        const type_id__id = ((item.type_id & 0xffff) << 16) | (item.id & 0xffff);
+        items_w.i32le(type_id__id);
+        items_w.i32le(item.item_data.length * 4);
+        for (const v of item.item_data) items_w.i32le(v);
+    }
+    const items_buf = items_w.build();
+    const data_bufs: Buffer[] = df.data_items.map(d =>
+        df.version === 4 ? deflateSync(d) : d
+    );
+    const data_offsets: number[] = [];
+    const data_sizes: number[] = [];
+    let data_off = 0;
+    for (let i = 0; i < df.data_items.length; i++) {
+        data_offsets.push(data_off);
+        data_sizes.push(df.data_items[i].length);
+        data_off += data_bufs[i].length;
+    }
+    const data_buf = Buffer.concat(data_bufs);
+    const num_item_types = type_entries.length;
+    const num_items = all_items.length;
+    const num_data = df.data_items.length;
+    const item_size = items_buf.length;
+    const data_size = data_buf.length;
+    const swaplen = 5 * 4 + num_item_types * 12 + num_items * 4 + num_data * 4 + (df.version === 4 ? num_data * 4 : 0);
+    const size = swaplen + item_size + data_size;
+    const w = new BufWriter();
+
+    w.raw(Buffer.from('DATA', 'ascii'));
+    w.i32le(df.version);
+
+    w.i32le(size);
+    w.i32le(swaplen);
+    w.i32le(num_item_types);
+    w.i32le(num_items);
+    w.i32le(num_data);
+    w.i32le(item_size);
+    w.i32le(data_size);
+
+    for (const t of type_entries) {
+        w.i32le(t.type_id);
+        w.i32le(t.start);
+        w.i32le(t.num);
+    }
+
+    for (const o of item_offsets) w.i32le(o);
+    for (const o of data_offsets) w.i32le(o);
+
+    if (df.version === 4) {
+        for (const s of data_sizes) w.i32le(s);
+    }
+
+    w.raw(items_buf);
+    w.raw(data_buf);
+
+    return w.build();
 }
