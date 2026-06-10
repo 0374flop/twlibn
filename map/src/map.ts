@@ -1,20 +1,32 @@
 import { parse_datafile, ParsedDatafile } from "./datafile";
 import { intsToStr, BufReader } from "@twlibn/core";
-import { MapInfo, MapImage, LayerGroup, TileLayer, QuadLayer, TilemapLayerType, Tile, TileId, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, QuadPoint, QuadColor } from "./types";
+import { MapInfo, MapInfoItem, MapVersion, MapImage, LayerGroup, TileLayer, QuadLayer, SoundLayer, SoundSource, TilemapLayerType, Tile, TileId, TeleTile, SpeedupTile, SwitchTile, TuneTile, Quad, QuadPoint, QuadColor, Envelope, EnvelopePoint, MapSound, AutoMapper, AnyLayer } from "./types";
 
-const ITEM_TYPE_IMAGES = 2;
-const ITEM_TYPE_GROUPS = 4;
-const ITEM_TYPE_LAYERS = 5;
+const ITEM_TYPE_VERSION   = 0;
+const ITEM_TYPE_INFO      = 1;
+const ITEM_TYPE_IMAGES    = 2;
+const ITEM_TYPE_ENVELOPES = 3;
+const ITEM_TYPE_GROUPS    = 4;
+const ITEM_TYPE_LAYERS    = 5;
+const ITEM_TYPE_ENV_POINTS = 6;
+const ITEM_TYPE_SOUNDS    = 7;
+const ITEM_TYPE_UUID_INDEX = 0xffff;
 
-const LAYER_KIND_TILES = 2;
-const LAYER_KIND_QUADS = 3;
+const LAYER_KIND_TILES  = 2;
+const LAYER_KIND_QUADS  = 3;
+const LAYER_KIND_SOUNDS_DEPRECATED = 9;
+const LAYER_KIND_SOUNDS = 10;
 
-export function is_tile_layer(l: TileLayer | QuadLayer): l is TileLayer {
+export function is_tile_layer(l: AnyLayer): l is TileLayer {
     return "layer_type" in l;
 }
 
-export function is_quad_layer(l: TileLayer | QuadLayer): l is QuadLayer {
+export function is_quad_layer(l: AnyLayer): l is QuadLayer {
     return "quads" in l;
+}
+
+export function is_sound_layer(l: AnyLayer): l is SoundLayer {
+    return "sources" in l;
 }
 
 export class MapParser {
@@ -42,8 +54,23 @@ export class MapParser {
         const result: MapInfo = {
             datafile_version: df.version,
             images: [],
+            envelopes: [],
+            sounds: [],
             groups: [],
+            auto_mappers: [],
         };
+
+        
+        const version_items = df.items.get(ITEM_TYPE_VERSION) ?? [];
+        if (version_items[0]) {
+            result.map_version = { version: version_items[0].item_data[0] ?? 0 };
+        }
+
+        
+        const info_items = df.items.get(ITEM_TYPE_INFO) ?? [];
+        if (info_items[0]) {
+            result.info = this.parseInfo(info_items[0].item_data, df);
+        }
 
         const image_items = df.items.get(ITEM_TYPE_IMAGES) ?? [];
 
@@ -66,6 +93,50 @@ export class MapParser {
             result.images.push(image);
         }
 
+        const sound_items = df.items.get(ITEM_TYPE_SOUNDS) ?? [];
+        for (const s of sound_items) {
+            result.sounds.push(this.parseSound(s.item_data, df));
+        }
+
+        const env_point_items = df.items.get(ITEM_TYPE_ENV_POINTS) ?? [];
+        const all_env_points: number[] = env_point_items[0]?.item_data ?? [];
+
+        const envelope_items = df.items.get(ITEM_TYPE_ENVELOPES) ?? [];
+        for (const env of envelope_items) {
+            result.envelopes.push(this.parseEnvelope(env.item_data, all_env_points));
+        }
+
+        let auto_mapper_type_id = -1;
+        const uuid_index_items = df.items.get(ITEM_TYPE_UUID_INDEX) ?? [];
+        const AUTO_MAPPER_BYTES = Buffer.from('16271b3e8c1778399bd9b11ae041d0d8', 'hex');
+        for (const u of uuid_index_items) {
+            const d = u.item_data;
+            if (d.length < 4) continue;
+            const uuid_buf = Buffer.alloc(16);
+            uuid_buf.writeInt32BE(d[0], 0);
+            uuid_buf.writeInt32BE(d[1], 4);
+            uuid_buf.writeInt32BE(d[2], 8);
+            uuid_buf.writeInt32BE(d[3], 12);
+            if (uuid_buf.equals(AUTO_MAPPER_BYTES)) {
+                auto_mapper_type_id = u.id;
+            }
+        }
+
+        if (auto_mapper_type_id !== -1) {
+            const am_items = df.items.get(auto_mapper_type_id) ?? [];
+            for (const am of am_items) {
+                const d = am.item_data;
+                if (d.length < 6) continue;
+                result.auto_mappers.push({
+                    group: d[1],
+                    layer: d[2],
+                    config: d[3],
+                    seed: d[4],
+                    automatic: (d[5] & 1) !== 0,
+                });
+            }
+        }
+
         const group_items = df.items.get(ITEM_TYPE_GROUPS) ?? [];
         const layer_items = df.items.get(ITEM_TYPE_LAYERS) ?? [];
 
@@ -73,9 +144,9 @@ export class MapParser {
             const d = g.item_data;
             if (d.length < 7) continue;
 
-            const gv    = d[0];
+            const gv = d[0];
             const start = d[5];
-            const num   = d[6];
+            const num = d[6];
 
             const clipping = gv >= 2 ? !!d[7] : false;
             const clip_x = gv >= 2 ? d[8] : 0;
@@ -111,15 +182,19 @@ export class MapParser {
                 if (layer_kind === LAYER_KIND_TILES) {
                     const layer = this.parseTileLayer(ld, df);
                     if (!layer) continue;
-
                     group.layers.push(layer);
-
-                    if (layer.layer_type === TilemapLayerType.GAME  && !result.game_layer)  result.game_layer = layer;
-                    if (layer.layer_type === TilemapLayerType.FRONT && !result.front_layer) result.front_layer = layer;
-                    if (layer.layer_type === TilemapLayerType.TELE  && !result.tele_layer)  result.tele_layer = layer;
-
+                    if (layer.layer_type === TilemapLayerType.GAME) result.game_layer = layer;
+                    if (layer.layer_type === TilemapLayerType.FRONT) result.front_layer = layer;
+                    if (layer.layer_type === TilemapLayerType.TELE) result.tele_layer = layer;
+                    if (layer.layer_type === TilemapLayerType.SPEEDUP) result.speedup_layer = layer;
+                    if (layer.layer_type === TilemapLayerType.SWITCH) result.switch_layer = layer;
+                    if (layer.layer_type === TilemapLayerType.TUNE) result.tune_layer = layer;
                 } else if (layer_kind === LAYER_KIND_QUADS) {
                     const layer = this.parseQuadLayer(ld, df);
+                    if (!layer) continue;
+                    group.layers.push(layer);
+                } else if (layer_kind === LAYER_KIND_SOUNDS || layer_kind === LAYER_KIND_SOUNDS_DEPRECATED) {
+                    const layer = this.parseSoundLayer(ld, df, layer_kind === LAYER_KIND_SOUNDS_DEPRECATED);
                     if (!layer) continue;
                     group.layers.push(layer);
                 }
@@ -186,6 +261,123 @@ export class MapParser {
             layer.tune_tiles = this.parseTune(tile_buf, w, h);
 
         return layer;
+    }
+
+    private static parseInfo(d: number[], df: ParsedDatafile): MapInfoItem {
+        const getString = (idx: number) => idx >= 0 ? this.getCString(df.data_items[idx]) : '';
+        const author = getString(d[1] ?? -1);
+        const version = getString(d[2] ?? -1);
+        const credits = getString(d[3] ?? -1);
+        const license = getString(d[4] ?? -1);
+        const settings: string[] = [];
+        const settings_idx = d[5] ?? -1;
+        if (settings_idx >= 0) {
+            const buf = df.data_items[settings_idx];
+            if (buf) {
+                let pos = 0;
+                while (pos < buf.length) {
+                    const end = buf.indexOf(0, pos);
+                    if (end === -1) break;
+                    if (end > pos) settings.push(buf.subarray(pos, end).toString('utf8'));
+                    pos = end + 1;
+                }
+            }
+        }
+        return { author, version, credits, license, settings };
+    }
+
+    private static parseEnvelope(d: number[], all_points: number[]): Envelope {
+        const version = d[0];
+        const channels = d[1];
+        const start = d[2];
+        const num = d[3];
+        const name = d.length >= 12 ? intsToStr([d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11]]) : '';
+        const synchronized = version >= 2 ? d[12] !== 0 : false;
+
+        const bezier = version >= 3;
+        const point_size = bezier ? 22 : 6;
+        const points: EnvelopePoint[] = [];
+
+        for (let i = 0; i < num; i++) {
+            const base = (start + i) * point_size;
+            if (base + 6 > all_points.length) break;
+            const time = all_points[base];
+            const curve_type = all_points[base + 1];
+            const v0 = all_points[base + 2] ?? 0;
+            const v1 = all_points[base + 3] ?? 0;
+            const v2 = all_points[base + 4] ?? 0;
+            const v3 = all_points[base + 5] ?? 0;
+            const pt: EnvelopePoint = { time, curve_type, values: [v0, v1, v2, v3] };
+            if (bezier && all_points.length >= base + 22) {
+                pt.in_tangent_dx = [all_points[base+6], all_points[base+7], all_points[base+8], all_points[base+9]];
+                pt.in_tangent_dy = [all_points[base+10], all_points[base+11], all_points[base+12], all_points[base+13]];
+                pt.out_tangent_dx = [all_points[base+14], all_points[base+15], all_points[base+16], all_points[base+17]];
+                pt.out_tangent_dy = [all_points[base+18], all_points[base+19], all_points[base+20], all_points[base+21]];
+            }
+            points.push(pt);
+        }
+
+        return { version, channels, name, synchronized, points };
+    }
+
+    private static parseSound(d: number[], df: ParsedDatafile): MapSound {
+        const external = d[1] !== 0;
+        const name = this.getCString(df.data_items[d[2] ?? -1]);
+        const sound: MapSound = { external, name };
+        if (!external && d[3] != null && d[3] >= 0) {
+            sound.data = df.data_items[d[3]];
+        }
+        return sound;
+    }
+
+    private static parseSoundLayer(ld: number[], df: ParsedDatafile, deprecated: boolean): SoundLayer | null {
+        if (ld.length < 8) return null;
+        // ld[0] = _version (unused), ld[1] = type, ld[2] = flags, ld[3] = version
+        const num_sources = ld[4];
+        const data_idx = ld[5];
+        const sound_index = ld[6] ?? -1;
+        const detail = (ld[2] & 1) !== 0;
+        const name = ld.length >= 10 ? this.decode([ld[7], ld[8], ld[9]]) : '';
+        const buf = df.data_items[data_idx];
+        if (!buf) return null;
+        const sources = this.parseSoundSources(buf, num_sources, deprecated);
+        return { name, detail, sound_index, sources };
+    }
+
+    private static parseSoundSources(buf: Buffer, num: number, deprecated: boolean): SoundSource[] {
+        const stride = deprecated ? 36 : 52;
+        const sources: SoundSource[] = [];
+        for (let i = 0; i < num; i++) {
+            const o = i * stride;
+            if (o + stride > buf.length) break;
+            const r = new BufReader(buf.subarray(o, o + stride));
+            const x = r.i32le();
+            const y = r.i32le();
+            if (deprecated) {
+                const looping = r.i32le() !== 0;
+                const delay = r.i32le();
+                const radius = r.i32le();
+                const pos_env = r.i32le();
+                const pos_env_offset = r.i32le();
+                const sound_env = r.i32le();
+                const sound_env_offset = r.i32le();
+                sources.push({ x, y, looping, panning: true, delay, falloff: 0, pos_env, pos_env_offset, sound_env, sound_env_offset, shape_kind: 1, shape_width: radius, shape_height: 0 });
+            } else {
+                const looping = r.i32le() !== 0;
+                const panning = r.i32le() !== 0;
+                const delay = r.i32le();
+                const falloff = r.i32le();
+                const pos_env = r.i32le();
+                const pos_env_offset = r.i32le();
+                const sound_env = r.i32le();
+                const sound_env_offset = r.i32le();
+                const shape_kind = r.i32le();
+                const shape_width = r.i32le();
+                const shape_height = r.i32le();
+                sources.push({ x, y, looping, panning, delay, falloff, pos_env, pos_env_offset, sound_env, sound_env_offset, shape_kind, shape_width, shape_height });
+            }
+        }
+        return sources;
     }
 
     private static parseQuadLayer(ld: number[], df: ParsedDatafile): QuadLayer | null {

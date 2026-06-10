@@ -39,6 +39,8 @@ export interface QuadLayer {
     quads: Quad[];
 }
 
+export type AnyLayer = TileLayer | QuadLayer | SoundLayer;
+
 export interface MapImage {
     width: number;
     height: number;
@@ -75,14 +77,93 @@ export interface LayerGroup {
     clip_y: number;
     clip_w: number;
     clip_h: number;
-    layers: (TileLayer | QuadLayer)[];
+    layers: AnyLayer[];
+}
+
+export interface MapVersion {
+    version: number;
+}
+
+export interface MapInfoItem {
+    author: string;
+    version: string;
+    credits: string;
+    license: string;
+    settings: string[];
+}
+
+export interface EnvelopePoint {
+    time: number;
+    curve_type: number;
+    values: [number, number, number, number];
+    in_tangent_dx?: [number, number, number, number];
+    in_tangent_dy?: [number, number, number, number];
+    out_tangent_dx?: [number, number, number, number];
+    out_tangent_dy?: [number, number, number, number];
+}
+
+export const ENVELOPE_CHANNEL_SOUND    = 1;
+export const ENVELOPE_CHANNEL_POSITION = 3;
+export const ENVELOPE_CHANNEL_COLOR    = 4;
+
+export interface Envelope {
+    version: number;
+    channels: number;
+    name: string;
+    synchronized: boolean;
+    points: EnvelopePoint[];
+}
+
+export interface SoundSource {
+    x: number;
+    y: number;
+    looping: boolean;
+    panning: boolean;
+    delay: number;
+    falloff: number;
+    pos_env: number;
+    pos_env_offset: number;
+    sound_env: number;
+    sound_env_offset: number;
+    shape_kind: number;
+    shape_width: number;
+    shape_height: number;
+}
+
+export interface SoundLayer {
+    name: string;
+    detail: boolean;
+    sound_index: number;
+    sources: SoundSource[];
+}
+
+export interface MapSound {
+    external: boolean;
+    name: string;
+    data?: Buffer;
+}
+
+export interface AutoMapper {
+    group: number;
+    layer: number;
+    config: number;
+    seed: number;
+    automatic: boolean;
 }
 
 export interface MapInfo {
     datafile_version: number;
+    map_version?: MapVersion;
+    info?: MapInfoItem;
     images: MapImage[];
+    envelopes: Envelope[];
+    sounds: MapSound[];
     groups: LayerGroup[];
+    auto_mappers: AutoMapper[];
     game_layer?: TileLayer;
     front_layer?: TileLayer;
     tele_layer?: TileLayer;
+    speedup_layer?: TileLayer;
+    switch_layer?: TileLayer;
+    tune_layer?: TileLayer;
 }

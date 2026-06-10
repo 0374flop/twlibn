@@ -64,7 +64,7 @@ export function parse_datafile(buf: Buffer): ParsedDatafile {
             const off = items_start + item_offsets[it.start + i];
             const id = buf.readUInt16LE(off);
             const type_id = buf.readUInt16LE(off + 2);
-            const size = buf.readInt32LE(off + 4); // item header не через BufReader т.к. используем абсолютные офсеты
+            const size = buf.readInt32LE(off + 4);
 
             const item_data: number[] = [];
             for (let j = 0; j < size / 4; j++) {
