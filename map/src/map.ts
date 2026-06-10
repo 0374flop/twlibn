@@ -343,11 +343,12 @@ export class MapParser {
     private static parseSoundLayer(ld: number[], df: ParsedDatafile, deprecated: boolean): SoundLayer | null {
         if (ld.length < 8) return null;
         // ld[0] = _version (unused), ld[1] = type, ld[2] = flags, ld[3] = version
+        const version = ld[3];
         const num_sources = ld[4];
         const data_idx = ld[5];
         const sound_index = ld[6] ?? -1;
         const detail = (ld[2] & 1) !== 0;
-        const name = ld.length >= 10 ? this.decode([ld[7], ld[8], ld[9]]) : '';
+        const name = version >= 2 && ld.length >= 10 ? this.decode([ld[7], ld[8], ld[9]]) : '';
         const buf = df.data_items[data_idx];
         if (!buf) return null;
         const sources = this.parseSoundSources(buf, num_sources, deprecated);

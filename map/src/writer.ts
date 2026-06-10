@@ -284,6 +284,9 @@ export class MapWriter {
 
     private static serializeQuads(quads: Quad[]): Buffer {
         const w = new BufWriter();
+        if (quads.length === 0) {
+            return Buffer.alloc(152);
+        }
         for (const q of quads) {
             for (const p of q.points) { w.i32le(p.x); w.i32le(p.y); }
             for (const c of q.colors) { w.i32le(c.r); w.i32le(c.g); w.i32le(c.b); w.i32le(c.a); }
@@ -298,6 +301,9 @@ export class MapWriter {
 
     private static serializeSoundSources(sources: SoundSource[]): Buffer {
         const w = new BufWriter();
+        if (sources.length === 0) {
+            return Buffer.alloc(52);
+        }
         for (const s of sources) {
             w.i32le(s.x); w.i32le(s.y);
             w.i32le(s.looping ? 1 : 0);
