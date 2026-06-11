@@ -3,6 +3,8 @@ export const TW_UUIDS = {
     MAPITEMTYPE_AUTOMAPPER_CONFIG: 'mapitemtype-automapper-config@ddnet.tw',
     MAPITEMTYPE_ENVPOINTS_BEZIER: 'mapitemtype-envpoints-bezier@ddnet.tw',
 
+    MAPBUG_GRENADE_DOUBLEEXPLOSION: 'grenade-doubleexplosion@ddnet.tw',
+
     NETMSG_CAPABILITIES: 'capabilities@ddnet.tw',
     NETMSG_CHECKSUM_ERROR: 'checksum-error@ddnet.tw',
     NETMSG_CHECKSUM_REQUEST: 'checksum-request@ddnet.tw',
@@ -24,6 +26,7 @@ export const TW_UUIDS = {
     NETMSG_REDIRECT: 'redirect@ddnet.org',
     NETMSG_WHATIS: 'what-is@ddnet.tw',
 
+    TEEHISTORIAN_FILE: 'teehistorian@ddnet.tw',
     TEEHISTORIAN_ANTIBOT: 'teehistorian-antibot@ddnet.org',
     TEEHISTORIAN_AUTH_INIT: 'teehistorian-auth-init@ddnet.tw',
     TEEHISTORIAN_AUTH_LOGIN: 'teehistorian-auth-login@ddnet.tw',
@@ -46,5 +49,3 @@ export const TW_UUIDS = {
     TEEHISTORIAN_TEAM_PRACTICE: 'teehistorian-team-practice@ddnet.tw',
     TEEHISTORIAN_TEST: 'teehistorian-test@ddnet.tw',
 } as const;
-
-// неуверен в них
