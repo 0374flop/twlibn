@@ -57,20 +57,12 @@ program
 		console.log(`messages:        ${msgs}`);
 
 		if (opts.messages || opts.chat) {
-			console.log("\n=== messages ===");
 			const snap = new Snapshot();
 			const names = new Map<number, string>();
 			let cur_tick = 0;
 			let deltatick = -1;
-
-			const updateNames = () => {
-				for (const item of snap.deltas) {
-					if (item.type_id === 11) {
-						const info = item.parsed as { name: string };
-						names.set(item.id, info.name);
-					}
-				}
-			};
+			const lines: string[] = [];
+			const tParse0 = performance.now();
 
 			for (const chunk of demo.chunks) {
 				if (chunk.kind === "tick") {
@@ -80,13 +72,15 @@ program
 				if (chunk.kind !== "chunk") continue;
 
 				if (chunk.type === ChunkType.Snapshot) {
-					snap.unpackFullSnapshot(chunk.data, cur_tick);
+					const { items } = snap.unpackFullSnapshot(chunk.data, cur_tick);
 					deltatick = cur_tick;
-					updateNames();
+					for (const item of items)
+						if (item.type_id === 11) names.set(item.id, (item.parsed as { name: string }).name);
 				} else if (chunk.type === ChunkType.SnapshotDelta) {
-					snap.unpackSnapshot(chunk.data, deltatick, cur_tick);
+					const { items } = snap.unpackSnapshot(chunk.data, deltatick, cur_tick);
 					deltatick = cur_tick;
-					updateNames();
+					for (const item of items)
+						if (item.type_id === 11) names.set(item.id, (item.parsed as { name: string }).name);
 				} else if (chunk.type === ChunkType.Message) {
 					try {
 						const msg = parseDemoMessage(chunk.data);
@@ -94,20 +88,27 @@ program
 						if (opts.chat && msg.kind !== "SvChat") continue;
 						if (opts.chat && msg.kind === "SvChat") {
 							if (msg.client_id === -1) {
-								console.log(`*** ${msg.message}`);
+								lines.push(`*** ${msg.message}`);
 							} else {
 								const name = names.get(msg.client_id) ?? `#${msg.client_id}`;
 								const team = msg.team === 0 ? "" : msg.team;
-								console.log(`${msg.client_id}:${team} ${name} : ${msg.message}`);
+								lines.push(`${msg.client_id}:${team} ${name} : ${msg.message}`);
 							}
 							continue;
 						}
-						console.log(JSON.stringify(msg));
+						lines.push(JSON.stringify(msg));
 					} catch (e) {
-						console.log(`[parse error] ${e}`);
+						lines.push(`[parse error] ${e}`);
 					}
 				}
 			}
+			const tParse1 = performance.now();
+			console.log("\n=== messages ===");
+			const tOut0 = performance.now();
+			process.stdout.write(lines.join("\n") + "\n");
+			const tOut1 = performance.now();
+			console.log(`\nparsed in:   ${(tParse1 - tParse0).toFixed(2)}ms`);
+			console.log(`output in:   ${(tOut1 - tOut0).toFixed(2)}ms`);
 		}
 
 		if (opts.live) {
