@@ -19,9 +19,10 @@ program
 	.description("parse demo file")
 	.option("-m, --messages", "print parsed messages")
 	.option("-c, --chat", "print chat messages only")
+	.option("-l, --live", "replay demo in real time")
 	.option("-s, --snapshots", "print snapshot item counts per tick")
 	.option("-t, --tick <n>", "print snapshot items for specific tick", parseInt)
-	.action((file: string, opts: { messages?: boolean; chat?: boolean; snapshots?: boolean; tick?: number }) => {
+	.action((file: string, opts: { messages?: boolean; chat?: boolean; live?: boolean; snapshots?: boolean; tick?: number }) => {
 		const buf = fs.readFileSync(path.resolve(file));
 		const t0 = performance.now();
 		const demo = DemoParser.parse(buf);
@@ -104,6 +105,65 @@ program
 						console.log(JSON.stringify(msg));
 					} catch (e) {
 						console.log(`[parse error] ${e}`);
+					}
+				}
+			}
+		}
+
+		if (opts.live) {
+			if (!opts.chat) console.warn("warning: only chat is currently supported in --live, showing chat anyway (use -c to suppress this warning)");
+			console.log("\n=== live ===");
+			const snap = new Snapshot();
+			const names = new Map<number, string>();
+			let startTick = -1;
+			let cur_tick = 0;
+			let deltatick = -1;
+			const startTime = Date.now();
+
+			const updateNames = () => {
+				for (const item of snap.deltas) {
+					if (item.type_id === 11) {
+						const info = item.parsed as { name: string };
+						names.set(item.id, info.name);
+					}
+				}
+			};
+
+			for (const chunk of demo.chunks) {
+				if (chunk.kind === "tick") {
+					cur_tick = chunk.tick;
+					if (startTick === -1) startTick = cur_tick;
+					continue;
+				}
+				if (chunk.kind !== "chunk") continue;
+
+				if (chunk.type === ChunkType.Snapshot) {
+					snap.unpackFullSnapshot(chunk.data, cur_tick);
+					deltatick = cur_tick;
+					updateNames();
+				} else if (chunk.type === ChunkType.SnapshotDelta) {
+					snap.unpackSnapshot(chunk.data, deltatick, cur_tick);
+					deltatick = cur_tick;
+					updateNames();
+				} else if (chunk.type === ChunkType.Message) {
+					try {
+						const msg = parseDemoMessage(chunk.data);
+						if (msg.kind !== "SvChat") continue;
+						const tick = cur_tick;
+						const delay = ((tick - startTick) / 50) * 1000 - (Date.now() - startTime);
+						const captured = { client_id: msg.client_id, team: msg.team, message: msg.message };
+						const capturedNames = new Map(names);
+						setTimeout(() => {
+							if (captured.client_id === -1) {
+								console.log(`*** ${captured.message}`);
+							} else {
+								const name = capturedNames.get(captured.client_id) ?? `#${captured.client_id}`;
+								const team = captured.team === 0 ? "" : captured.team;
+								console.log(`${captured.client_id}:${team} ${name} : ${captured.message}`);
+							}
+						}, Math.max(0, delay));
+					} catch (e) {
+						// skip
 					}
 				}
 			}
