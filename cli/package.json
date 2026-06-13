@@ -1,0 +1,31 @@
+{
+  "name": "@twlibn/cli",
+  "version": "0.0.1",
+  "description": "twlibn cli",
+  "keywords": [
+    "teeworlds",
+    "ddnet",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "0374flop",
+  "type": "commonjs",
+  "bin": {
+    "twlibn": "lib/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
+  },
+  "dependencies": {
+    "@twlibn/core": "^0.0.5",
+    "@twlibn/demo": "^0.0.3",
+    "@twlibn/map": "^0.1.2",
+    "@twlibn/message": "file:../message",
+    "@twlibn/snapshot": "^0.0.3",
+    "commander": "^14.0.0"
+  }
+}
