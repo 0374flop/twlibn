@@ -1,0 +1,25 @@
+{
+  "name": "@twlibn/message",
+  "version": "0.0.1",
+  "description": "tw message parser",
+  "keywords": [
+    "teeworlds",
+    "ddnet",
+    "message",
+    "parser"
+  ],
+  "license": "MIT",
+  "author": "0374flop",
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
+  },
+  "dependencies": {
+    "@twlibn/core": "^0.0.6"
+  }
+}
