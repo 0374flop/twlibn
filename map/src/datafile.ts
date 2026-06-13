@@ -128,8 +128,14 @@ export function write_datafile(df: ParsedDatafile): Buffer {
     const num_data = df.data_items.length;
     const item_size = items_buf.length;
     const data_size = data_buf.length;
-    const swaplen = 5 * 4 + num_item_types * 12 + num_items * 4 + num_data * 4 + (df.version === 4 ? num_data * 4 : 0);
-    const size = swaplen + item_size + data_size;
+    const swaplen =
+        5 * 4 +
+        num_item_types * 12 +
+        num_items * 4 +
+        num_data * 4 +
+        (df.version === 4 ? num_data * 4 : 0) +
+        item_size;
+    const size = swaplen + data_size;
     const w = new BufWriter();
 
     w.raw(Buffer.from('DATA', 'ascii'));
