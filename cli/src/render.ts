@@ -1,5 +1,10 @@
 import * as readline from "readline";
 
+const ANSI_RESET = "\x1b[0m";
+const PLAYER_COLORS = ["\x1b[36m", "\x1b[32m", "\x1b[35m", "\x1b[33m", "\x1b[34m", "\x1b[31m", "\x1b[96m", "\x1b[92m"];
+const COLOR_YELLOW = "\x1b[33m";
+const COLOR_WHITE = "\x1b[37m";
+
 const TILE_CHARS: Record<number, string> = {
   0: " ",
   1: "█",
@@ -127,38 +132,51 @@ export class MapRenderer {
     const out: string[] = [];
     out.push("\x1b[2J\x1b[H");
 
-    for (const line of this.chatLines) out.push(line + "\n");
+    for (const line of this.chatLines) {
+      const color = line.startsWith("***") ? COLOR_YELLOW : COLOR_WHITE;
+      out.push(color + line + ANSI_RESET + "\n");
+    }
 
     const usedRows = this.chatLines.length + this.overlay.length;
     const mapHeight = this.vp.height - usedRows;
 
-    const grid: string[][] = [];
+    interface Cell { char: string; color: string; }
+    const grid: Cell[][] = [];
     for (let row = vp.y; row < vp.y + mapHeight; row++) {
-      const chars: string[] = [];
+      const chars: Cell[] = [];
       for (let col = vp.x; col < vp.x + vp.width; col++) {
         const f = this.front?.[row]?.[col] ?? 0;
-        chars.push(tileToChar(f !== 0 ? f : (this.tiles[row]?.[col] ?? 0)));
+        chars.push({ char: tileToChar(f !== 0 ? f : (this.tiles[row]?.[col] ?? 0)), color: COLOR_WHITE });
       }
       grid.push(chars);
     }
 
     for (const p of this.players) {
+      const color = PLAYER_COLORS[p.cid % PLAYER_COLORS.length];
       const px = Math.floor(p.x / 32);
       const py = Math.floor(p.y / 32);
       const gridRow = py - vp.y;
       if (gridRow >= 0 && gridRow < grid.length && px >= vp.x && px < vp.x + vp.width) {
-        grid[gridRow][px - vp.x] = angleToChar(p.angle);
+        grid[gridRow][px - vp.x] = { char: angleToChar(p.angle), color };
       }
       const nameRow = gridRow - 1;
       if (nameRow >= 0 && nameRow < grid.length) {
         for (let i = 0; i < p.name.length; i++) {
           const col = px - vp.x + i;
-          if (col >= 0 && col < this.vp.width) grid[nameRow][col] = p.name[i];
+          if (col >= 0 && col < this.vp.width) grid[nameRow][col] = { char: p.name[i], color };
         }
       }
     }
 
-    for (const chars of grid) out.push(chars.join("") + "\n");
+    for (const chars of grid) {
+      let line = "";
+      let curColor = "";
+      for (const cell of chars) {
+        if (cell.color !== curColor) { line += cell.color; curColor = cell.color; }
+        line += cell.char;
+      }
+      out.push(line + ANSI_RESET + "\n");
+    }
 
     for (const line of this.overlay) out.push(line + "\n");
 

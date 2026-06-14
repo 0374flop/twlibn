@@ -171,7 +171,7 @@ export function playDemo(demo: ParsedDemo): void {
 
 	const switchPlayer = (dir: 1 | -1) => {
 		manualFollow = true;
-		const players = getPlayerList();
+		const players = getPlayerList().slice().sort((a, b) => a.cid - b.cid);
 		if (players.length === 0) return;
 		const followed = renderer.getFollowCid();
 		const idx = followed !== null ? players.findIndex(p => p.cid === followed) : -1;
