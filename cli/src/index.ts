@@ -6,7 +6,7 @@ import { DemoParser, ChunkType } from "@twlibn/demo";
 import { parseDemoMessage } from "@twlibn/message";
 import { Snapshot } from "@twlibn/snapshot";
 import { MapParser } from "@twlibn/map";
-import { startInteractive, MapRenderer, PlayerPos, attachCameraControls } from "./pender";
+import { startInteractive, MapRenderer, PlayerPos, attachCameraControls } from "./render";
 
 const program = new Command();
 
