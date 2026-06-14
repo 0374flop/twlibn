@@ -47,7 +47,7 @@ function clampViewport(vp: Viewport, mapW: number, mapH: number): Viewport {
   return { ...vp, x, y };
 }
 
-export interface PlayerPos { x: number; y: number; angle: number; name: string; }
+export interface PlayerPos { x: number; y: number; angle: number; name: string; cid: number; }
 
 const DIR_CHARS = [">", "\\", "v", "/", "<", "\\", "^", "/"];
 
@@ -62,8 +62,10 @@ export class MapRenderer {
   private front?: number[][];
   private players: PlayerPos[] = [];
   private chatLines: string[] = [];
+  private overlay: string[] = [];
   private vp: Viewport;
   private initialized = false;
+  private followCid: number | null = null;
 
   constructor(tiles: number[][], front?: number[][]) {
     this.tiles = tiles;
@@ -87,11 +89,32 @@ export class MapRenderer {
 
   setPlayers(players: PlayerPos[]): void {
     this.players = players;
+    if (this.followCid !== null) {
+      const target = players.find(p => p.cid === this.followCid);
+      if (target) {
+        const px = Math.floor(target.x / 32);
+        const py = Math.floor(target.y / 32);
+        this.vp.x = px - Math.floor(this.vp.width / 2);
+        this.vp.y = py - Math.floor(this.vp.height / 2);
+      }
+    }
+  }
+
+  follow(cid: number | null): void {
+    this.followCid = cid;
+  }
+
+  getFollowCid(): number | null {
+    return this.followCid;
   }
 
   pushChat(line: string): void {
     this.chatLines.push(line);
     while (this.chatLines.length > 5) this.chatLines.shift();
+  }
+
+  setOverlay(lines: string[]): void {
+    this.overlay = lines;
   }
 
   render(): void {
@@ -106,7 +129,8 @@ export class MapRenderer {
 
     for (const line of this.chatLines) out.push(line + "\n");
 
-    const mapHeight = this.vp.height - this.chatLines.length;
+    const usedRows = this.chatLines.length + this.overlay.length;
+    const mapHeight = this.vp.height - usedRows;
 
     const grid: string[][] = [];
     for (let row = vp.y; row < vp.y + mapHeight; row++) {
@@ -136,14 +160,17 @@ export class MapRenderer {
 
     for (const chars of grid) out.push(chars.join("") + "\n");
 
+    for (const line of this.overlay) out.push(line + "\n");
+
     out.push(
-      `\x1b[7m x:${vp.x} y:${vp.y}  map:${mapW}x${mapH}  [WASD/arrows] move  [Q] quit \x1b[0m`
+      `\x1b[7m x:${vp.x} y:${vp.y}  map:${mapW}x${mapH}  [WASD] move  [Q/E] player  [Z/C] seek  [Space/X] pause  [T] quit \x1b[0m`
     );
 
     this.write(out.join(""));
   }
 
   move(dx: number, dy: number): void {
+    this.followCid = null;
     this.vp.x += dx;
     this.vp.y += dy;
     this.render();
@@ -155,7 +182,7 @@ export class MapRenderer {
   }
 }
 
-export function attachCameraControls(renderer: MapRenderer): void {
+export function attachCameraControls(renderer: MapRenderer, onQuit?: () => void): void {
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
@@ -164,9 +191,10 @@ export function attachCameraControls(renderer: MapRenderer): void {
   process.stdin.on("keypress", (_str, key) => {
     if (!key) return;
 
-    if (key.name === "q" || (key.ctrl && key.name === "c")) {
-      renderer.destroy();
-      process.exit(0);
+    if (key.name === "t" || (key.ctrl && key.name === "c")) {
+      if (onQuit) onQuit();
+      else { renderer.destroy(); process.exit(0); }
+      return;
     }
 
     const moves: Record<string, [number, number]> = {
@@ -185,8 +213,8 @@ export function attachCameraControls(renderer: MapRenderer): void {
   });
 
   process.on("SIGINT", () => {
-    renderer.destroy();
-    process.exit(0);
+    if (onQuit) onQuit();
+    else { renderer.destroy(); process.exit(0); }
   });
 }
 
