@@ -6,25 +6,23 @@ import { DemoParser, ChunkType } from "@twlibn/demo";
 import { parseDemoMessage } from "@twlibn/message";
 import { Snapshot } from "@twlibn/snapshot";
 import { MapParser } from "@twlibn/map";
-import { startInteractive, MapRenderer, PlayerPos, attachCameraControls } from "./render";
+import { startInteractive } from "./render";
+import { playDemo } from "./player";
 
 const program = new Command();
 
 program
 	.name("twlibn")
-	.description("twlibn cli")
+	.description("DDNet/Teeworlds toolkit")
 	.version("0.0.1");
 
-program
-	.command("demo <file>")
-	.description("parse demo file")
-	.option("-m, --messages", "print parsed messages")
-	.option("-c, --chat", "print chat messages only")
-	.option("-l, --live", "replay demo in real time")
-	.option("-s, --snapshots", "print snapshot item counts per tick")
-	.option("-t, --tick <n>", "print snapshot items for specific tick", parseInt)
-	.option("-r, --render", "render players on map during --live (uses embedded map)")
-	.action((file: string, opts: { messages?: boolean; chat?: boolean; live?: boolean; snapshots?: boolean; tick?: number; render?: boolean }) => {
+const demoCmd = program.command("demo [file]").description("inspect a demo file")
+	.option("-m, --messages", "show all network messages")
+	.option("-c, --chat [filter]", "show chat (pl = players only, sys = system only)")
+	.option("-s, --snapshots", "show snapshot counts per tick")
+	.option("-t, --tick <n>", "dump snapshot at tick N", parseInt)
+	.action((file: string | undefined, opts: { messages?: boolean; chat?: string | boolean; snapshots?: boolean; tick?: number }) => {
+		if (!file) { console.error("error: missing file argument"); process.exit(1); }
 		const buf = fs.readFileSync(path.resolve(file));
 		const t0 = performance.now();
 		const demo = DemoParser.parse(buf);
@@ -58,12 +56,11 @@ program
 		console.log(`snapshot deltas: ${deltas}`);
 		console.log(`messages:        ${msgs}`);
 
-		if (opts.render && !opts.live) console.log("\nnote: -r/--render has no effect without -l/--live");
-
-		const noFlags = !opts.messages && !opts.chat && !opts.live && !opts.snapshots && opts.tick === undefined && !opts.render;
-		if (noFlags) opts.chat = true;
+		const noFlags = !opts.messages && !opts.chat && !opts.snapshots && opts.tick === undefined;
+		if (noFlags) console.log("\ntip: use -c to show chat");
 
 		if (opts.messages || opts.chat) {
+			const chatFilter = typeof opts.chat === "string" ? opts.chat : null;
 			const snap = new Snapshot();
 			const names = new Map<number, string>();
 			let cur_tick = 0;
@@ -94,7 +91,10 @@ program
 						if (msg.kind === "Unknown") continue;
 						if (opts.chat && msg.kind !== "SvChat") continue;
 						if (opts.chat && msg.kind === "SvChat") {
-							if (msg.client_id === -1) {
+							const isSystem = msg.client_id === -1;
+							if (chatFilter === "sys" && !isSystem) continue;
+							if (chatFilter === "pl" && isSystem) continue;
+							if (isSystem) {
 								lines.push(`*** ${msg.message}`);
 							} else {
 								const name = names.get(msg.client_id) ?? `#${msg.client_id}`;
@@ -110,107 +110,13 @@ program
 				}
 			}
 			const tParse1 = performance.now();
-			if (noFlags) console.log("\n=== chat (no flags given, showing chat only) ===");
-			else console.log("\n=== messages ===");
+			const label = opts.chat ? (chatFilter === "sys" ? "=== chat (system) ===" : chatFilter === "pl" ? "=== chat (players) ===" : "=== chat ===") : "=== messages ===";
+			console.log("\n" + label);
 			const tOut0 = performance.now();
 			process.stdout.write(lines.join("\n") + "\n");
 			const tOut1 = performance.now();
 			console.log(`\nparsed in:   ${(tParse1 - tParse0).toFixed(2)}ms`);
 			console.log(`output in:   ${(tOut1 - tOut0).toFixed(2)}ms`);
-		}
-
-		if (opts.live) {
-			if (!opts.render) console.log("note: --live only renders chat for now");
-			let renderer: MapRenderer | undefined;
-			if (opts.render) {
-				const map = MapParser.parse(demo.map_data);
-				if (map.game_layer && map.game_layer.tiles) {
-					const tiles = map.game_layer.tiles.map(row => row.map(t => t.id));
-					const front = map.front_layer?.tiles?.map(row => row.map(t => t.id));
-					renderer = new MapRenderer(tiles, front);
-					attachCameraControls(renderer);
-					renderer.render();
-				}
-			} else {
-				console.log("\n=== live ===");
-			}
-			const snap = new Snapshot();
-			const names = new Map<number, string>();
-			let startTick = -1;
-			let cur_tick = 0;
-			let deltatick = -1;
-			const startTime = Date.now();
-
-			const updateNames = () => {
-				for (const item of snap.deltas) {
-					if (item.type_id === 11) {
-						const info = item.parsed as { name: string };
-						names.set(item.id, info.name);
-					}
-				}
-			};
-
-			for (const chunk of demo.chunks) {
-				if (chunk.kind === "tick") {
-					cur_tick = chunk.tick;
-					if (startTick === -1) startTick = cur_tick;
-					continue;
-				}
-				if (chunk.kind !== "chunk") continue;
-
-				if (chunk.type === ChunkType.Snapshot) {
-					snap.unpackFullSnapshot(chunk.data, cur_tick);
-					deltatick = cur_tick;
-					updateNames();
-				} else if (chunk.type === ChunkType.SnapshotDelta) {
-					snap.unpackSnapshot(chunk.data, deltatick, cur_tick);
-					deltatick = cur_tick;
-					updateNames();
-					if (renderer) {
-						const tick = cur_tick;
-						const delay = ((tick - startTick) / 50) * 1000 - (Date.now() - startTime);
-						const players: PlayerPos[] = [];
-						for (const item of snap.deltas) {
-							if (item.type_id === 9) {
-								const c = (item.parsed as { character_core: { x: number; y: number; angle: number }; client_id: number }).character_core;
-								const cid = (item.parsed as { client_id: number }).client_id;
-								players.push({ x: c.x, y: c.y, angle: c.angle, name: names.get(cid) ?? `#${cid}` });
-							}
-						}
-						setTimeout(() => {
-							renderer!.setPlayers(players);
-							renderer!.render();
-						}, Math.max(0, delay));
-					}
-				} else if (chunk.type === ChunkType.Message) {
-					try {
-						const msg = parseDemoMessage(chunk.data);
-						if (msg.kind !== "SvChat") continue;
-						const tick = cur_tick;
-						const delay = ((tick - startTick) / 50) * 1000 - (Date.now() - startTime);
-						const captured = { client_id: msg.client_id, team: msg.team, message: msg.message };
-						const capturedNames = new Map(names);
-						setTimeout(() => {
-							let line: string;
-							if (captured.client_id === -1) {
-								line = `*** ${captured.message}`;
-							} else {
-								const name = capturedNames.get(captured.client_id) ?? `#${captured.client_id}`;
-								const team = captured.team === 0 ? "" : captured.team;
-								line = `${captured.client_id}:${team} ${name} : ${captured.message}`;
-							}
-							if (renderer) {
-								renderer.pushChat(line);
-								renderer.render();
-							} else {
-								console.log(line);
-							}
-						}, Math.max(0, delay));
-					} catch (e) {
-						// skip
-					}
-				}
-			}
 		}
 
 		if (opts.snapshots || opts.tick !== undefined) {
@@ -255,14 +161,19 @@ program
 		}
 	});
 
-program
-	.command("map <file>")
-	.description("parse map file")
-	.option("-g, --groups", "print groups and layers")
-	.option("-i, --images", "print images")
-	.option("-e, --envelopes", "print envelopes")
-	.option("-r, --render", "interactive render of game layer")
-	.action((file: string, opts: { groups?: boolean; images?: boolean; envelopes?: boolean; render?: boolean }) => {
+demoCmd
+	.command("play <file>")
+	.aliases(["player"])
+	.description("replay demo in real time")
+	.action((file: string) => {
+		const buf = fs.readFileSync(path.resolve(file));
+		const demo = DemoParser.parse(buf);
+		playDemo(demo);
+	});
+
+const mapCmd = program.command("map [file]").description("inspect a map file")
+	.action((file: string | undefined) => {
+		if (!file) { console.error("error: missing file argument"); process.exit(1); }
 		const buf = fs.readFileSync(path.resolve(file));
 		const map = MapParser.parse(buf);
 
@@ -286,6 +197,17 @@ program
 			const g = map.game_layer;
 			console.log(`size:      ${g.width}x${g.height}`);
 		}
+	});
+
+mapCmd
+	.command("info <file>")
+	.description("show groups, images and envelopes")
+	.option("-g, --groups", "show groups and layers")
+	.option("-i, --images", "show images")
+	.option("-e, --envelopes", "show envelopes")
+	.action((file: string, opts: { groups?: boolean; images?: boolean; envelopes?: boolean }) => {
+		const buf = fs.readFileSync(path.resolve(file));
+		const map = MapParser.parse(buf);
 
 		if (opts.groups) {
 			console.log("\n=== groups ===");
@@ -318,16 +240,21 @@ program
 				console.log(`  [${i}] ${e.name || "(unnamed)"} channels=${e.channels} points=${e.points.length}`);
 			}
 		}
+	});
 
-		if (opts.render) {
-			if (!map.game_layer || !map.game_layer.tiles) {
-				console.error("no game layer to render");
-				return;
-			}
-			const tiles = map.game_layer.tiles.map(row => row.map(t => t.id));
-			const front = map.front_layer?.tiles?.map(row => row.map(t => t.id));
-			startInteractive(tiles, front);
+mapCmd
+	.command("view <file>")
+	.description("open interactive map viewer")
+	.action((file: string) => {
+		const buf = fs.readFileSync(path.resolve(file));
+		const map = MapParser.parse(buf);
+		if (!map.game_layer || !map.game_layer.tiles) {
+			console.error("no game layer to render");
+			return;
 		}
+		const tiles = map.game_layer.tiles.map(row => row.map((t: { id: number }) => t.id));
+		const front = map.front_layer?.tiles?.map(row => row.map((t: { id: number }) => t.id));
+		startInteractive(tiles, front);
 	});
 
 program.parse(process.argv);

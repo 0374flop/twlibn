@@ -155,44 +155,6 @@ export class MapRenderer {
   }
 }
 
-export function startInteractive(tiles: number[][], front?: number[][]): void {
-  const renderer = new MapRenderer(tiles, front);
-  renderer.render();
-
-  readline.emitKeypressEvents(process.stdin);
-  if (process.stdin.isTTY) process.stdin.setRawMode(true);
-
-  const STEP = 4;
-
-  process.stdin.on("keypress", (_str, key) => {
-    if (!key) return;
-
-    if (key.name === "q" || (key.ctrl && key.name === "c")) {
-      renderer.destroy();
-      process.exit(0);
-    }
-
-    const moves: Record<string, [number, number]> = {
-      up:    [0, -STEP],
-      down:  [0,  STEP],
-      left:  [-STEP, 0],
-      right: [ STEP, 0],
-      w:     [0, -STEP],
-      s:     [0,  STEP],
-      a:     [-STEP, 0],
-      d:     [ STEP, 0],
-    };
-
-    const mv = moves[key.name ?? ""];
-    if (mv) renderer.move(mv[0], mv[1]);
-  });
-
-  process.on("SIGINT", () => {
-    renderer.destroy();
-    process.exit(0);
-  });
-}
-
 export function attachCameraControls(renderer: MapRenderer): void {
   readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
@@ -228,5 +190,8 @@ export function attachCameraControls(renderer: MapRenderer): void {
   });
 }
 
-// import { startInteractive } from "./render";
-// startInteractive(yourParsedTiles);
+export function startInteractive(tiles: number[][], front?: number[][]): void {
+  const renderer = new MapRenderer(tiles, front);
+  renderer.render();
+  attachCameraControls(renderer);
+}
