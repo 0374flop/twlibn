@@ -23,8 +23,8 @@ program
 	.option("-l, --live", "replay demo in real time")
 	.option("-s, --snapshots", "print snapshot item counts per tick")
 	.option("-t, --tick <n>", "print snapshot items for specific tick", parseInt)
-	.option("-r, --render [mapfile]", "render players on map during --live (uses embedded map if no file given)")
-	.action((file: string, opts: { messages?: boolean; chat?: boolean; live?: boolean; snapshots?: boolean; tick?: number; render?: string | boolean }) => {
+	.option("-r, --render", "render players on map during --live (uses embedded map)")
+	.action((file: string, opts: { messages?: boolean; chat?: boolean; live?: boolean; snapshots?: boolean; tick?: number; render?: boolean }) => {
 		const buf = fs.readFileSync(path.resolve(file));
 		const t0 = performance.now();
 		const demo = DemoParser.parse(buf);
@@ -57,6 +57,11 @@ program
 		console.log(`snapshots:       ${snaps}`);
 		console.log(`snapshot deltas: ${deltas}`);
 		console.log(`messages:        ${msgs}`);
+
+		if (opts.render && !opts.live) console.log("\nnote: -r/--render has no effect without -l/--live");
+
+		const noFlags = !opts.messages && !opts.chat && !opts.live && !opts.snapshots && opts.tick === undefined && !opts.render;
+		if (noFlags) opts.chat = true;
 
 		if (opts.messages || opts.chat) {
 			const snap = new Snapshot();
@@ -105,7 +110,8 @@ program
 				}
 			}
 			const tParse1 = performance.now();
-			console.log("\n=== messages ===");
+			if (noFlags) console.log("\n=== chat (no flags given, showing chat only) ===");
+			else console.log("\n=== messages ===");
 			const tOut0 = performance.now();
 			process.stdout.write(lines.join("\n") + "\n");
 			const tOut1 = performance.now();
@@ -114,19 +120,17 @@ program
 		}
 
 		if (opts.live) {
-			if (!opts.chat) console.warn("warning: only chat is currently supported in --live, showing chat anyway (use -c to suppress this warning)");
-
+			if (!opts.render) console.log("note: --live only renders chat for now");
 			let renderer: MapRenderer | undefined;
-			if (opts.render !== undefined) {
-				const mapBuf = typeof opts.render === "string" ? fs.readFileSync(path.resolve(opts.render)) : demo.map_data;
-				const map = MapParser.parse(mapBuf);
+			if (opts.render) {
+				const map = MapParser.parse(demo.map_data);
 				if (map.game_layer && map.game_layer.tiles) {
-				const tiles = map.game_layer.tiles.map(row => row.map(t => t.id));
-				const front = map.front_layer?.tiles?.map(row => row.map(t => t.id));
-				renderer = new MapRenderer(tiles, front);
-				attachCameraControls(renderer);
-				renderer.render();
-					}
+					const tiles = map.game_layer.tiles.map(row => row.map(t => t.id));
+					const front = map.front_layer?.tiles?.map(row => row.map(t => t.id));
+					renderer = new MapRenderer(tiles, front);
+					attachCameraControls(renderer);
+					renderer.render();
+				}
 			} else {
 				console.log("\n=== live ===");
 			}
