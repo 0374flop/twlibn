@@ -113,6 +113,10 @@ export class MapRenderer {
     return this.followCid;
   }
 
+  clearChat(): void {
+    this.chatLines = [];
+  }
+
   pushChat(line: string): void {
     this.chatLines.push(line);
     while (this.chatLines.length > 5) this.chatLines.shift();

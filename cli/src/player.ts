@@ -183,6 +183,16 @@ export function playDemo(demo: ParsedDemo): void {
 
 	let seekHeldSince: number | null = null;
 
+	const rebuildChat = () => {
+		renderer.clearChat();
+		const lines: string[] = [];
+		for (let i = 0; i <= frameIdx; i++) {
+			for (const line of frames[i].chat) lines.push(line);
+		}
+		for (const line of lines.slice(-5)) renderer.pushChat(line);
+		lastChatFrameIdx = frameIdx;
+	};
+
 	const seek = (dir: 1 | -1, held: boolean) => {
 		const baseSecs = 5;
 		const maxSecs = 60;
@@ -196,6 +206,7 @@ export function playDemo(demo: ParsedDemo): void {
 		playbackTick = Math.max(minTick, Math.min(playbackTick + dir * secs * 50, maxTick));
 		frameIdx = getFrameForTick(Math.floor(playbackTick));
 		lastRealTime = Date.now();
+		rebuildChat();
 		renderFrame();
 	};
 
@@ -207,7 +218,7 @@ export function playDemo(demo: ParsedDemo): void {
 	process.stdin.on("keypress", (_str, key) => {
 		if (!key) return;
 
-		if (key.name === " " || key.name === "x") {
+		if (key.name === "space" || key.name === "x") {
 			paused = !paused;
 			if (!paused) lastRealTime = Date.now();
 			updateOverlay();
