@@ -24,9 +24,10 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 	.option("-c, --chat [filter]", "show chat (pl = players only, sys = system only)")
 	.option("-T, --time", "show timestamp before each chat message")
 	.option("-o, --output <file>", "export chat to file")
+	.option("-p, --players", "show all player identities as JSON")
 	.option("-s, --snapshots", "show snapshot counts per tick")
 	.option("-t, --tick <n>", "dump snapshot at tick N", parseInt)
-	.action((file: string | undefined, opts: { messages?: boolean; chat?: string | boolean; time?: boolean; output?: string; snapshots?: boolean; tick?: number }) => {
+	.action((file: string | undefined, opts: { messages?: boolean; chat?: string | boolean; time?: boolean; output?: string; players?: boolean; snapshots?: boolean; tick?: number }) => {
 		if (!file) { console.error("error: missing file argument"); process.exit(1); }
 		const buf = fs.readFileSync(path.resolve(file));
 		const t0 = performance.now();
@@ -62,7 +63,7 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 		console.log(`snapshot deltas: ${deltas}`);
 		console.log(`messages:        ${msgs}`);
 
-		const noFlags = !opts.messages && !opts.chat && !opts.snapshots && opts.tick === undefined;
+		const noFlags = !opts.messages && !opts.chat && !opts.players && !opts.snapshots && opts.tick === undefined;
 		if (noFlags) console.log("\ntip: use -c to show chat");
 
 		if (opts.messages || opts.chat) {
@@ -138,6 +139,27 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 			const tOut1 = performance.now();
 			console.log(`\nparsed in:   ${(tParse1 - tParse0).toFixed(2)}ms`);
 			console.log(`output in:   ${(tOut1 - tOut0).toFixed(2)}ms`);
+		}
+
+		if (opts.players) {
+			const snap = new Snapshot();
+			let cur_tick = 0;
+			let deltatick = -1;
+			const players = new Map<number, object>();
+
+			for (const chunk of demo.chunks) {
+				if (chunk.kind === "tick") { cur_tick = chunk.tick; continue; }
+				if (chunk.kind !== "chunk") continue;
+				let items: { type_id: number; id: number; parsed: unknown }[] = [];
+				if (chunk.type === ChunkType.Snapshot) {
+					({ items } = snap.unpackFullSnapshot(chunk.data, cur_tick)); deltatick = cur_tick;
+				} else if (chunk.type === ChunkType.SnapshotDelta) {
+					({ items } = snap.unpackSnapshot(chunk.data, deltatick, cur_tick)); deltatick = cur_tick;
+				}
+				for (const item of items)
+					if (item.type_id === 11) players.set(item.id, item.parsed as object);
+			}
+			process.stdout.write(JSON.stringify([...players.values()], null, 4) + "\n");
 		}
 
 		if (opts.snapshots || opts.tick !== undefined) {
