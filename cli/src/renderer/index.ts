@@ -36,13 +36,16 @@ export class Renderer {
 	private layers: Layer[] = [];
 	camera: Camera = { x: 0, y: 0 };
 	private initialized = false;
+	private draining = false;
 
 	private write(s: string): void {
-		process.stdout.write(s);
+		const ok = process.stdout.write(s);
+		if (!ok) this.draining = true;
 	}
 
 	private init(): void {
-		this.write("\x1b[?25l");
+		this.write("\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H");
+		process.stdout.on("drain", () => { this.draining = false; });
 		this.initialized = true;
 	}
 
@@ -57,6 +60,7 @@ export class Renderer {
 
 	render(): void {
 		if (!this.initialized) this.init();
+		if (this.draining) return;
 
 		const width = process.stdout.columns ?? 80;
 		const height = (process.stdout.rows ?? 26) - 1;
@@ -72,7 +76,7 @@ export class Renderer {
 			composite(base, over);
 		}
 
-		let out = "\x1b[2J\x1b[H";
+		let out = "\x1b[?2026h\x1b[H";
 		for (const row of base) {
 			let line = "";
 			let curColor = "";
@@ -84,8 +88,9 @@ export class Renderer {
 				if (bg !== curBg) { line += bg; curBg = bg; }
 				line += cell.char;
 			}
-			out += line + ANSI_RESET + "\n";
+			out += line + ANSI_RESET + "\x1b[K\n";
 		}
+		out += "\x1b[J\x1b[?2026l";
 
 		this.write(out);
 	}
@@ -96,6 +101,6 @@ export class Renderer {
 	}
 
 	destroy(): void {
-		this.write("\x1b[?25h\n");
+		this.write("\x1b[?25h\x1b[?1049l");
 	}
 }
