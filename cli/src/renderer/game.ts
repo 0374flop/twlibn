@@ -1,6 +1,15 @@
-import { Cell, Camera, Layer } from "./index";
+import { Cell, Camera, Layer, graphemes } from "./index";
 
-const PLAYER_COLORS = ["\x1b[36m", "\x1b[32m", "\x1b[35m", "\x1b[33m", "\x1b[34m", "\x1b[31m", "\x1b[96m", "\x1b[92m"];
+const PLAYER_COLORS = [
+	"\x1b[38;2;0;230;230m",
+	"\x1b[38;2;60;220;60m",
+	"\x1b[38;2;230;60;230m",
+	"\x1b[38;2;230;200;0m",
+	"\x1b[38;2;255;140;0m",
+	"\x1b[38;2;230;50;50m",
+	"\x1b[38;2;120;220;255m",
+	"\x1b[38;2;140;255;120m",
+];
 const COLOR_WHITE = "\x1b[37m";
 
 const TILE_CHARS: Record<number, string> = {
@@ -83,9 +92,10 @@ export class PlayersLayer implements Layer {
 			}
 			const nameRow = py - 1;
 			if (nameRow >= 0 && nameRow < height) {
-				for (let i = 0; i < p.name.length; i++) {
+				const nameChars = graphemes(p.name);
+				for (let i = 0; i < nameChars.length; i++) {
 					const col = px + i;
-					if (col >= 0 && col < width) grid[nameRow][col] = { char: p.name[i], color };
+					if (col >= 0 && col < width) grid[nameRow][col] = { char: nameChars[i], color };
 				}
 			}
 		}

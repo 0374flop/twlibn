@@ -1,5 +1,10 @@
 export const ANSI_RESET = "\x1b[0m";
 
+export function graphemes(s: string): string[] {
+	const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+	return Array.from(seg.segment(s), (x) => x.segment);
+}
+
 export interface Cell {
 	char: string;
 	color: string;

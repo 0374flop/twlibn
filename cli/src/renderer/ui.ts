@@ -1,4 +1,4 @@
-import { Cell, Camera, Layer } from "./index";
+import { Cell, Camera, Layer, graphemes } from "./index";
 
 const ANSI_RESET = "\x1b[0m";
 const COLOR_YELLOW = "\x1b[33m";
@@ -29,8 +29,9 @@ export class ChatLayer implements Layer {
 		for (let i = 0; i < this.lines.length; i++) {
 			const line = this.lines[i];
 			const color = line.startsWith("***") ? COLOR_YELLOW : COLOR_WHITE;
-			for (let c = 0; c < Math.min(line.length, width); c++) {
-				grid[i][c] = { char: line[c], color };
+			const chars = graphemes(line);
+			for (let c = 0; c < Math.min(chars.length, width); c++) {
+				grid[i][c] = { char: chars[c], color };
 			}
 		}
 
@@ -52,8 +53,9 @@ export class HudLayer implements Layer {
 
 		for (let i = 0; i < this.lines.length && i < height; i++) {
 			const line = this.lines[i];
-			for (let c = 0; c < Math.min(line.length, width); c++) {
-				grid[i][c] = { char: line[c], color: COLOR_WHITE };
+			const chars = graphemes(line);
+			for (let c = 0; c < Math.min(chars.length, width); c++) {
+				grid[i][c] = { char: chars[c], color: COLOR_WHITE };
 			}
 		}
 
@@ -75,9 +77,10 @@ export class StatusLayer implements Layer {
 
 		const last = height - 1;
 		const bg = "\x1b[7m";
-		const line = this.text.slice(0, width).padEnd(width);
+		const chars = graphemes(this.text).slice(0, width);
+		while (chars.length < width) chars.push(" ");
 		for (let c = 0; c < width; c++) {
-			grid[last][c] = { char: line[c], color: "", bg };
+			grid[last][c] = { char: chars[c], color: "", bg };
 		}
 
 		return grid;
@@ -135,9 +138,9 @@ export class MenuLayer implements Layer {
 				else {
 					const itemIdx = r - 1;
 					if (itemIdx < this.items.length) {
-						const item = this.items[itemIdx];
+						const itemChars = graphemes(this.items[itemIdx]);
 						const textC = c - 1;
-						if (textC < item.length) char = item[textC];
+						if (textC < itemChars.length) char = itemChars[textC];
 					}
 				}
 				const isSelectedRow = r - 1 === this.selected;
