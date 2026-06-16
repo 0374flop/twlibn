@@ -6,7 +6,9 @@ import { DemoParser, ChunkType } from "@twlibn/demo";
 import { parseDemoMessage } from "@twlibn/message";
 import { Snapshot } from "@twlibn/snapshot";
 import { MapParser } from "@twlibn/map";
-import { startInteractive } from "./render";
+import { Renderer } from "./renderer/index";
+import { MapLayer } from "./renderer/game";
+import { StatusLayer } from "./renderer/ui";
 import { playDemo } from "./player";
 
 const program = new Command();
@@ -254,7 +256,29 @@ mapCmd
 		}
 		const tiles = map.game_layer.tiles.map(row => row.map((t: { id: number }) => t.id));
 		const front = map.front_layer?.tiles?.map(row => row.map((t: { id: number }) => t.id));
-		startInteractive(tiles, front);
+		const renderer = new Renderer();
+		const mapLayer = new MapLayer();
+		const statusLayer = new StatusLayer();
+		mapLayer.setTiles(tiles, front);
+		statusLayer.setText("[WASD] move  [T] quit");
+		renderer.add(mapLayer);
+		renderer.add(statusLayer);
+		renderer.render();
+
+		const readline2 = require("readline");
+		readline2.emitKeypressEvents(process.stdin);
+		if (process.stdin.isTTY) process.stdin.setRawMode(true);
+		process.stdin.on("keypress", (_str: unknown, key: { name?: string; ctrl?: boolean }) => {
+			if (!key) return;
+			if (key.name === "t" || (key.ctrl && key.name === "c")) { renderer.destroy(); process.exit(0); }
+			const moves: Record<string, [number, number]> = {
+				up: [0, -4], down: [0, 4], left: [-4, 0], right: [4, 0],
+				w: [0, -4], s: [0, 4], a: [-4, 0], d: [4, 0],
+			};
+			const mv = moves[key.name ?? ""];
+			if (mv) { renderer.moveCamera(mv[0], mv[1]); renderer.render(); }
+		});
+		process.on("SIGINT", () => { renderer.destroy(); process.exit(0); });
 	});
 
 program.parse(process.argv);

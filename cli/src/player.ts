@@ -3,7 +3,9 @@ import { ChunkType, ParsedDemo } from "@twlibn/demo";
 import { parseDemoMessage } from "@twlibn/message";
 import { Snapshot } from "@twlibn/snapshot";
 import { MapParser } from "@twlibn/map";
-import { MapRenderer, PlayerPos, attachCameraControls } from "./render";
+import { Renderer } from "./renderer/index";
+import { MapLayer, PlayersLayer, PlayerPos } from "./renderer/game";
+import { ChatLayer, StatusLayer } from "./renderer/ui";
 
 interface Frame {
 	tick: number;
@@ -98,7 +100,20 @@ export function playDemo(demo: ParsedDemo): void {
 
 	const tiles = map.game_layer.tiles.map(row => row.map((t: { id: number }) => t.id));
 	const front = map.front_layer?.tiles?.map(row => row.map((t: { id: number }) => t.id));
-	const renderer = new MapRenderer(tiles, front);
+
+	const renderer = new Renderer();
+	const mapLayer = new MapLayer();
+	const playersLayer = new PlayersLayer();
+	const chatLayer = new ChatLayer();
+	const statusLayer = new StatusLayer();
+
+	mapLayer.setTiles(tiles, front);
+	statusLayer.setText("[WASD] move  [Q/E] player  [Z/C] seek  [Space/X] pause  [T] quit");
+
+	renderer.add(mapLayer);
+	renderer.add(playersLayer);
+	renderer.add(chatLayer);
+	renderer.add(statusLayer);
 
 	const { frames, initialLocalCid } = buildFrames(demo);
 	if (frames.length === 0) {
@@ -112,34 +127,43 @@ export function playDemo(demo: ParsedDemo): void {
 	let lastChatFrameIdx = -1;
 	let paused = false;
 	let manualFollow = false;
-
-	if (initialLocalCid !== null) renderer.follow(initialLocalCid);
+	let followCid: number | null = initialLocalCid;
 
 	const getPlayerList = (): PlayerPos[] => frames[frameIdx]?.players ?? [];
 
-	const updateOverlay = () => {
+	const updateCamera = () => {
+		if (followCid === null) return;
+		const target = getPlayerList().find(p => p.cid === followCid);
+		if (!target) return;
+		const px = Math.floor(target.x / 32);
+		const py = Math.floor(target.y / 32);
+		const w = process.stdout.columns ?? 80;
+		const h = (process.stdout.rows ?? 26) - 1;
+		renderer.camera.x = px - Math.floor(w / 2);
+		renderer.camera.y = py - Math.floor(h / 2);
+	};
+
+	const updateHud = () => {
 		const tick = frames[frameIdx]?.tick ?? frames[0].tick;
 		const elapsed = (tick - frames[0].tick) / 50;
-		const followed = renderer.getFollowCid();
-		const followedName = followed !== null
-			? (getPlayerList().find(p => p.cid === followed)?.name ?? `#${followed}`)
+		const followedName = followCid !== null
+			? (getPlayerList().find(p => p.cid === followCid)?.name ?? `#${followCid}`)
 			: "free";
 		const pauseStr = paused ? " [PAUSED]" : "";
-		renderer.setOverlay([
-			`  ${formatTime(elapsed)} / ${formatTime(totalSeconds)}${pauseStr}  following: ${followedName}`,
-		]);
+		statusLayer.setText(`${formatTime(elapsed)} / ${formatTime(totalSeconds)}${pauseStr}  following: ${followedName}  [WASD] move  [Q/E] player  [Z/C] seek  [Space/X] pause  [T] quit`);
 	};
 
 	const renderFrame = () => {
 		const frame = frames[frameIdx];
 		if (!frame) return;
 		if (frameIdx !== lastChatFrameIdx) {
-			for (const line of frame.chat) renderer.pushChat(line);
+			for (const line of frame.chat) chatLayer.push(line);
 			lastChatFrameIdx = frameIdx;
 		}
-		if (!manualFollow && frame.localCid !== null) renderer.follow(frame.localCid);
-		renderer.setPlayers(frame.players);
-		updateOverlay();
+		if (!manualFollow && frame.localCid !== null) followCid = frame.localCid;
+		playersLayer.setPlayers(frame.players);
+		updateCamera();
+		updateHud();
 		renderer.render();
 	};
 
@@ -173,23 +197,22 @@ export function playDemo(demo: ParsedDemo): void {
 		manualFollow = true;
 		const players = getPlayerList().slice().sort((a, b) => a.cid - b.cid);
 		if (players.length === 0) return;
-		const followed = renderer.getFollowCid();
-		const idx = followed !== null ? players.findIndex(p => p.cid === followed) : -1;
+		const idx = followCid !== null ? players.findIndex(p => p.cid === followCid) : -1;
 		const next = (idx + dir + players.length) % players.length;
-		renderer.follow(players[next].cid);
-		updateOverlay();
+		followCid = players[next].cid;
+		updateHud();
 		renderer.render();
 	};
 
 	let seekHeldSince: number | null = null;
 
 	const rebuildChat = () => {
-		renderer.clearChat();
+		chatLayer.clear();
 		const lines: string[] = [];
 		for (let i = 0; i <= frameIdx; i++) {
 			for (const line of frames[i].chat) lines.push(line);
 		}
-		for (const line of lines.slice(-5)) renderer.pushChat(line);
+		for (const line of lines.slice(-5)) chatLayer.push(line);
 		lastChatFrameIdx = frameIdx;
 	};
 
@@ -215,13 +238,22 @@ export function playDemo(demo: ParsedDemo): void {
 	readline.emitKeypressEvents(process.stdin);
 	if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
+	const cleanup = () => {
+		clearInterval(interval);
+		for (const k of Object.values(keyHeld)) if (k) clearInterval(k);
+		renderer.destroy();
+		process.exit(0);
+	};
+
 	process.stdin.on("keypress", (_str, key) => {
 		if (!key) return;
+
+		if (key.name === "t" || (key.ctrl && key.name === "c")) { cleanup(); return; }
 
 		if (key.name === "space" || key.name === "x") {
 			paused = !paused;
 			if (!paused) lastRealTime = Date.now();
-			updateOverlay();
+			updateHud();
 			renderer.render();
 			return;
 		}
@@ -229,15 +261,19 @@ export function playDemo(demo: ParsedDemo): void {
 		if (key.name === "q") { switchPlayer(-1); return; }
 		if (key.name === "e") { switchPlayer(1); return; }
 
+		const moves: Record<string, [number, number]> = {
+			up: [0, -4], down: [0, 4], left: [-4, 0], right: [4, 0],
+			w: [0, -4], s: [0, 4], a: [-4, 0], d: [4, 0],
+		};
+		const mv = moves[key.name ?? ""];
+		if (mv) { manualFollow = true; followCid = null; renderer.moveCamera(mv[0], mv[1]); renderer.render(); return; }
+
 		if (key.name === "z") {
 			if (!keyHeld.z) {
 				seekHeldSince = Date.now();
 				seek(-1, false);
 				keyHeld.z = setInterval(() => seek(-1, true), 100);
-				const stop = () => { if (keyHeld.z) { clearInterval(keyHeld.z); keyHeld.z = null; seekHeldSince = null; } };
-				setTimeout(stop, 600);
-			} else {
-				seek(-1, true);
+				setTimeout(() => { if (keyHeld.z) { clearInterval(keyHeld.z); keyHeld.z = null; seekHeldSince = null; } }, 600);
 			}
 			return;
 		}
@@ -246,10 +282,7 @@ export function playDemo(demo: ParsedDemo): void {
 				seekHeldSince = Date.now();
 				seek(1, false);
 				keyHeld.c = setInterval(() => seek(1, true), 100);
-				const stop = () => { if (keyHeld.c) { clearInterval(keyHeld.c); keyHeld.c = null; seekHeldSince = null; } };
-				setTimeout(stop, 600);
-			} else {
-				seek(1, true);
+				setTimeout(() => { if (keyHeld.c) { clearInterval(keyHeld.c); keyHeld.c = null; seekHeldSince = null; } }, 600);
 			}
 			return;
 		}
@@ -261,12 +294,7 @@ export function playDemo(demo: ParsedDemo): void {
 		if (key.name === "c" && keyHeld.c) { clearInterval(keyHeld.c); keyHeld.c = null; seekHeldSince = null; }
 	});
 
-	attachCameraControls(renderer, () => {
-		clearInterval(interval);
-		for (const k of Object.values(keyHeld)) if (k) clearInterval(k);
-		renderer.destroy();
-		process.exit(0);
-	});
+	process.on("SIGINT", cleanup);
 
 	renderFrame();
 }
