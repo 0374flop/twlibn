@@ -10,6 +10,7 @@ import { Renderer } from "./renderer/index";
 import { MapLayer } from "./renderer/game";
 import { StatusLayer } from "./renderer/ui";
 import { playDemo } from "./player";
+import { liveView } from "./live";
 
 const program = new Command();
 
@@ -279,6 +280,16 @@ mapCmd
 			if (mv) { renderer.moveCamera(mv[0], mv[1]); renderer.render(); }
 		});
 		process.on("SIGINT", () => { renderer.destroy(); process.exit(0); });
+	});
+
+program
+	.command("client <address> [name]")
+	.description("connect to a DDNet/Teeworlds server")
+	.action((address: string, name: string = "twlibn") => {
+		const [host, portStr] = address.split(":");
+		const port = parseInt(portStr ?? "8303");
+		if (!host || isNaN(port)) { console.error("error: invalid address, expected ip:port"); process.exit(1); }
+		liveView(host, port, name);
 	});
 
 program.parse(process.argv);

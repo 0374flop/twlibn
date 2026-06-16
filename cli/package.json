@@ -26,6 +26,7 @@
     "@twlibn/map": "^0.1.2",
     "@twlibn/message": "^0.0.1",
     "@twlibn/snapshot": "^0.0.3",
-    "commander": "^14.0.0"
+    "commander": "^14.0.0",
+    "teeworlds": "^2.6.1"
   }
 }
