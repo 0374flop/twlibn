@@ -22,9 +22,11 @@ program
 const demoCmd = program.command("demo [file]").description("inspect a demo file")
 	.option("-m, --messages", "show all network messages")
 	.option("-c, --chat [filter]", "show chat (pl = players only, sys = system only)")
+	.option("-T, --time", "show timestamp before each chat message")
+	.option("-o, --output <file>", "export chat to file")
 	.option("-s, --snapshots", "show snapshot counts per tick")
 	.option("-t, --tick <n>", "dump snapshot at tick N", parseInt)
-	.action((file: string | undefined, opts: { messages?: boolean; chat?: string | boolean; snapshots?: boolean; tick?: number }) => {
+	.action((file: string | undefined, opts: { messages?: boolean; chat?: string | boolean; time?: boolean; output?: string; snapshots?: boolean; tick?: number }) => {
 		if (!file) { console.error("error: missing file argument"); process.exit(1); }
 		const buf = fs.readFileSync(path.resolve(file));
 		const t0 = performance.now();
@@ -39,6 +41,7 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 		console.log(`type:        ${h.type}`);
 		console.log(`length:      ${h.length}`);
 		console.log(`parsed in:   ${(t1 - t0).toFixed(2)}ms`);
+		console.log(`recorded:    ${h.timestamp}`);
 		const dur = h.length;
 		const mm = Math.floor(dur / 60);
 		const ss = dur % 60;
@@ -67,13 +70,22 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 			const snap = new Snapshot();
 			const names = new Map<number, string>();
 			let cur_tick = 0;
+			let first_tick: number | null = null;
 			let deltatick = -1;
 			const lines: string[] = [];
 			const tParse0 = performance.now();
 
+			const baseTime = new Date(h.timestamp.replace("_", "T").replace(/-(\d{2})-(\d{2})$/, ":$1:$2"));
+			const formatTick = (tick: number): string => {
+				const ms = ((tick - (first_tick ?? tick)) / 50) * 1000;
+				const d = new Date(baseTime.getTime() + ms);
+				return `[${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}]`;
+			};
+
 			for (const chunk of demo.chunks) {
 				if (chunk.kind === "tick") {
 					cur_tick = chunk.tick;
+					if (first_tick === null) first_tick = cur_tick;
 					continue;
 				}
 				if (chunk.kind !== "chunk") continue;
@@ -97,12 +109,13 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 							const isSystem = msg.client_id === -1;
 							if (chatFilter === "sys" && !isSystem) continue;
 							if (chatFilter === "pl" && isSystem) continue;
+							const prefix = opts.time ? formatTick(cur_tick) + " " : "";
 							if (isSystem) {
-								lines.push(`*** ${msg.message}`);
+								lines.push(`${prefix}*** ${msg.message}`);
 							} else {
 								const name = names.get(msg.client_id) ?? `#${msg.client_id}`;
 								const team = msg.team === 0 ? "" : msg.team;
-								lines.push(`${msg.client_id}:${team} ${name} : ${msg.message}`);
+								lines.push(`${prefix}${msg.client_id}:${team} ${name} : ${msg.message}`);
 							}
 							continue;
 						}
@@ -116,7 +129,12 @@ const demoCmd = program.command("demo [file]").description("inspect a demo file"
 			const label = opts.chat ? (chatFilter === "sys" ? "=== chat (system) ===" : chatFilter === "pl" ? "=== chat (players) ===" : "=== chat ===") : "=== messages ===";
 			console.log("\n" + label);
 			const tOut0 = performance.now();
-			process.stdout.write(lines.join("\n") + "\n");
+			if (opts.output) {
+				fs.writeFileSync(path.resolve(opts.output), lines.join("\n") + "\n");
+				console.log(`saved to: ${opts.output}`);
+			} else {
+				process.stdout.write(lines.join("\n") + "\n");
+			}
 			const tOut1 = performance.now();
 			console.log(`\nparsed in:   ${(tParse1 - tParse0).toFixed(2)}ms`);
 			console.log(`output in:   ${(tOut1 - tOut0).toFixed(2)}ms`);
