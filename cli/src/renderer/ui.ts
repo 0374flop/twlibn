@@ -87,6 +87,33 @@ export class StatusLayer implements Layer {
 	}
 }
 
+export class ChatInputLayer implements Layer {
+	readonly parallax = 0;
+	private visible = false;
+	private buffer = "";
+
+	show(): void { this.visible = true; this.buffer = ""; }
+	hide(): void { this.visible = false; this.buffer = ""; }
+	isVisible(): boolean { return this.visible; }
+	getText(): string { return this.buffer; }
+	append(ch: string): void { this.buffer += ch; }
+	backspace(): void { this.buffer = [...this.buffer].slice(0, -1).join(""); }
+
+	render(_camera: Camera, width: number, height: number): Cell[][] {
+		const grid: Cell[][] = [];
+		for (let r = 0; r < height; r++) grid.push(emptyRow(width));
+		if (!this.visible) return grid;
+
+		const row = height - 2;
+		const line = "> " + this.buffer + "█";
+		const chars = graphemes(line).slice(0, width);
+		for (let c = 0; c < chars.length; c++) {
+			grid[row][c] = { char: chars[c], color: COLOR_WHITE };
+		}
+		return grid;
+	}
+}
+
 export class MenuLayer implements Layer {
 	readonly parallax = 0;
 	private visible = false;

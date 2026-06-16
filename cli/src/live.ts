@@ -3,10 +3,18 @@ import { Client } from "teeworlds";
 import { MapParser } from "@twlibn/map";
 import { Renderer } from "./renderer/index";
 import { MapLayer, PlayersLayer, PlayerPos } from "./renderer/game";
-import { ChatLayer, StatusLayer } from "./renderer/ui";
+import { ChatLayer, StatusLayer, ChatInputLayer } from "./renderer/ui";
 
 export function liveView(host: string, port: number, name: string): void {
-	const client = new Client(host, port, name, { downloadMap: true });
+	const client = new Client(host, port, name, { downloadMap: true, identity: {
+		name: name,
+		clan: "",
+		country: 0,
+		skin: "default",
+		use_custom_color: 0,
+		color_body: 0,
+		color_feet: 0,
+	} });
 
 	const renderer = new Renderer();
 	const mapLayer = new MapLayer();
@@ -14,9 +22,12 @@ export function liveView(host: string, port: number, name: string): void {
 	const chatLayer = new ChatLayer();
 	const statusLayer = new StatusLayer();
 
+	const chatInputLayer = new ChatInputLayer();
+
 	renderer.add(mapLayer);
 	renderer.add(playersLayer);
 	renderer.add(chatLayer);
+	renderer.add(chatInputLayer);
 	renderer.add(statusLayer);
 
 	let mapSize = 0;
@@ -117,7 +128,7 @@ export function liveView(host: string, port: number, name: string): void {
 
 	client.on("disconnect", (reason) => {
 		renderer.destroy();
-		console.log(`Disconnected: ${reason}`);
+		console.log(`Disconnected: ${reason || "(no reason)"}`);
 		process.exit(0);
 	});
 
@@ -144,7 +155,29 @@ export function liveView(host: string, port: number, name: string): void {
 
 	process.stdin.on("keypress", (_str, key) => {
 		if (!key) return;
-		if (key.name === "t" || (key.ctrl && key.name === "c")) { cleanup(); return; }
+		if (key.ctrl && key.name === "c") { cleanup(); return; }
+
+		if (chatInputLayer.isVisible()) {
+			if (key.name === "return") {
+				const text = chatInputLayer.getText().trim();
+				if (text) client.game.Say(text);
+				chatInputLayer.hide();
+				render();
+			} else if (key.name === "escape") {
+				chatInputLayer.hide();
+				render();
+			} else if (key.name === "backspace") {
+				chatInputLayer.backspace();
+				render();
+			} else if (_str && !key.ctrl && !key.meta) {
+				chatInputLayer.append(_str);
+				render();
+			}
+			return;
+		}
+
+		if (key.name === "return") { chatInputLayer.show(); render(); return; }
+		if (key.name === "t") { cleanup(); return; }
 		if (key.name === "q") { switchPlayer(-1); return; }
 		if (key.name === "e") { switchPlayer(1); return; }
 
